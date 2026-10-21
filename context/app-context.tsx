@@ -35,6 +35,7 @@ import {
 import type { BarSale, AuditEntry } from '@/lib/types'
 import { translate } from '@/lib/translations'
 import { uid, nowStamp } from '@/lib/format'
+import { normalizePhone, phoneKey } from '@/lib/phone'
 
 interface AppState {
   currentUser: User | null
@@ -61,6 +62,7 @@ interface AppContextValue extends AppState {
   login: (phone: string, password: string) => { success: boolean; role?: Role }
   logout: () => void
   register: (name: string, phone: string, password: string) => boolean
+  registerVerified: (name: string, phone: string) => boolean
   createBooking: (data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>) => boolean
   confirmBooking: (id: string) => void
   rejectBooking: (id: string) => void
@@ -205,8 +207,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [state.users, showNotification],
   )
 
-  const audit = (action: string): AuditEntry => ({
-    id: uid('au'),
+  const registerVerified = useCallback(
+    (name: string, phone: string) => {
+      const key = phoneKey(phone)
+      const existing = state.users.find((u) => phoneKey(u.phone) === key)
+
+      if (existing) {
+        setState((s) => ({ ...s, currentUser: existing }))
+        showNotification(`Xush kelibsiz, ${existing.name}`, 'success')
+        return true
+      }
+
+      const cleanName = name.trim() || 'Mehmon'
+      const newUser: User = {
+        id: uid('u'),
+        name: cleanName,
+        phone: normalizePhone(phone),
+        password: 'telegram-auth',
+        role: 'user',
+        bonusPoints: 0,
+        referralCode: cleanName.slice(0, 4).toUpperCase() + '2026',
+        favorites: [],
+        joinedAt: new Date().toISOString().slice(0, 10),
+        hoursPlayed: 0,
+      }
+      setState((s) => ({ ...s, users: [...s.users, newUser], currentUser: newUser }))
+      showNotification("Ro'yxatdan o'tdingiz!", 'success')
+      return true
+    },
+    [state.users, showNotification],
+  )
+
+  const audit = (action: string): AuditEntry => ({    id: uid('au'),
     action,
     by: state.currentUser?.name ?? 'system',
     at: nowStamp(),
@@ -396,6 +428,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     register,
+    registerVerified,
     createBooking,
     confirmBooking,
     rejectBooking,

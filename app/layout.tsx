@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Orbitron, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/context/app-context'
+import { TelegramWebApp } from '@/components/telegram-webapp'
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
 const orbitron = Orbitron({ variable: '--font-orbitron', subsets: ['latin'] })
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: 'dark light',
   themeColor: '#13111C',
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -36,6 +38,7 @@ export default function RootLayout({
     >
       <body className="font-sans antialiased bg-background text-foreground">
         <AppProvider>{children}</AppProvider>
+        <TelegramWebApp />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
