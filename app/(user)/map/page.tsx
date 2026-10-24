@@ -13,21 +13,19 @@ import { Star, Cpu, MemoryStick, Monitor, X } from 'lucide-react'
 
 type Filter = 'all' | 'available' | ComputerType
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'Barchasi' },
-  { id: 'available', label: "Bo'sh" },
-  { id: 'VIP', label: 'VIP' },
-  { id: 'GAMING_PRO', label: 'Gaming Pro' },
-  { id: 'STANDARD', label: 'Standard' },
-  { id: 'PS5', label: 'PS5' },
-]
-
 const ZONES: { type: ComputerType; name: string }[] = [
   { type: 'VIP', name: 'VIP Zona' },
   { type: 'GAMING_PRO', name: 'Gaming Pro Zona' },
   { type: 'STANDARD', name: 'Standard Zona' },
   { type: 'PS5', name: 'Console Zona' },
 ]
+
+const FILTER_LABELS: Record<ComputerType, string> = {
+  VIP: 'VIP',
+  GAMING_PRO: 'Gaming Pro',
+  STANDARD: 'Standard',
+  PS5: 'PS5',
+}
 
 export default function MapPage() {
   const { computers, currentUser, toggleFavorite, t } = useApp()
@@ -50,6 +48,21 @@ export default function MapPage() {
     [computers],
   )
 
+  // Faqat mavjud kompyuterlari bor zonalarni ko'rsatamiz.
+  const zones = useMemo(
+    () => ZONES.filter((z) => computers.some((c) => c.type === z.type)),
+    [computers],
+  )
+
+  const filters = useMemo<{ id: Filter; label: string }[]>(
+    () => [
+      { id: 'all', label: 'Barchasi' },
+      { id: 'available', label: "Bo'sh" },
+      ...zones.map((z) => ({ id: z.type, label: FILTER_LABELS[z.type] })),
+    ],
+    [zones],
+  )
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -70,7 +83,7 @@ export default function MapPage() {
 
       {/* Filters */}
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
@@ -89,7 +102,7 @@ export default function MapPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Map grid */}
         <div className="space-y-6">
-          {ZONES.map((zone) => {
+          {zones.map((zone) => {
             const zoneComputers = computers.filter((c) => c.type === zone.type)
             return (
               <Card key={zone.type} className="p-5">

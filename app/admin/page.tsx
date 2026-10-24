@@ -126,6 +126,8 @@ export default function AdminDashboard() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{b.userName}</p>
                     <p className="text-xs text-muted-foreground">
+                      <span className="text-mono-num text-primary">{b.code || '—'}</span>
+                      {' · '}
                       {b.computerLabel} · {b.startTime} · {b.hours}h
                     </p>
                   </div>

@@ -7,89 +7,73 @@ import Link from 'next/link'
 import { AuthBrand } from '@/components/auth-brand'
 import { Notifications } from '@/components/notifications'
 import { Button, Input } from '@/components/ui/primitives'
-import { ArrowLeft, Gamepad2, Loader2, ShieldCheck, Smartphone } from 'lucide-react'
-
-type Step = 'phone' | 'code'
-
-const BOT_URL = 'https://t.me/legionclubrobot'
+import { BOT_URL, BOT_USERNAME } from '@/lib/bot-link'
+import { phoneKey } from '@/lib/phone'
+import { Gamepad2, Loader2, ShieldCheck, Smartphone, UserPlus } from 'lucide-react'
 
 export default function RegisterPage() {
-  const { registerVerified, currentUser, hydrated, t } = useApp()
+  const { registerVerified, users, currentUser, hydrated, t } = useApp()
   const router = useRouter()
 
-  const [step, setStep] = useState<Step>('phone')
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
   const [name, setName] = useState('')
-  const [masked, setMasked] = useState('')
-  const [botUrl, setBotUrl] = useState(BOT_URL)
+  const [phone, setPhone] = useState('')
+  const [pin, setPin] = useState('')
+  const [pinConfirm, setPinConfirm] = useState('')
   const [error, setError] = useState('')
-  const [notFound, setNotFound] = useState(false)
+  const [alreadyExists, setAlreadyExists] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [resendIn, setResendIn] = useState(0)
 
   useEffect(() => {
     if (hydrated && currentUser) router.replace('/home')
   }, [hydrated, currentUser, router])
 
-  useEffect(() => {
-    if (resendIn <= 0) return
-    const id = setInterval(() => setResendIn((s) => Math.max(0, s - 1)), 1000)
-    return () => clearInterval(id)
-  }, [resendIn])
-
-  async function requestCode(e?: React.FormEvent) {
-    e?.preventDefault()
-    setError('')
-    setNotFound(false)
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/auth/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      })
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok || !data.ok) {
-        setError(data.message || 'Xatolik yuz berdi. Qayta urinib ko‘ring.')
-        setNotFound(data.error === 'not_found')
-        return
-      }
-
-      setName(data.name || '')
-      setMasked(data.phone || phone)
-      setBotUrl(data.botUrl || BOT_URL)
-      setStep('code')
-      setCode('')
-      setResendIn(45)
-    } catch {
-      setError('Server bilan aloqa yo‘q. Internetni tekshiring.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function verify(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setAlreadyExists(false)
+
+    const cleanName = name.trim().replace(/\s+/g, ' ')
+    const digits = phone.replace(/\D/g, '')
+
+    if (cleanName.length < 2) {
+      setError('Ismingizni to‘liq kiriting.')
+      return
+    }
+    if (!/^\d{9}$/.test(digits) && !/^998\d{9}$/.test(digits)) {
+      setError('Telefon raqamini to‘g‘ri kiriting. Masalan: +998 90 123 45 67')
+      return
+    }
+    if (!/^\d{4}$/.test(pin)) {
+      setError('4 xonali kod kiriting.')
+      return
+    }
+    if (pin !== pinConfirm) {
+      setError('Kodlar mos kelmadi. Qayta tekshirib ko‘ring.')
+      return
+    }
+    if (users.some((u) => phoneKey(u.phone) === phoneKey(phone))) {
+      setError('Bu telefon raqami allaqachon ro‘yxatdan o‘tgan.')
+      setAlreadyExists(true)
+      return
+    }
+
     setLoading(true)
 
     try {
-      const res = await fetch('/api/auth/verify', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ name: cleanName, phone, pin }),
       })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok || !data.ok) {
-        setError(data.message || 'Kod noto‘g‘ri.')
+        setError(data.message || 'Ro‘yxatdan o‘tishda xatolik yuz berdi. Qayta urinib ko‘ring.')
+        setAlreadyExists(data.error === 'already_exists')
         return
       }
 
-      if (registerVerified(data.user?.name || name, data.user?.phone || phone)) {
+      if (registerVerified(data.user?.name || cleanName, data.user?.phone || phone)) {
         router.replace('/home')
       }
     } catch {
@@ -110,133 +94,128 @@ export default function RegisterPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Gamepad2 className="h-5 w-5" />
             </span>
-            <span className="font-heading text-lg font-bold">Legion Game Club</span>
+            <span className="font-heading text-lg font-bold">Prime Game Club</span>
           </div>
 
           <h1 className="font-heading text-2xl font-bold tracking-tight">{t('register')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {step === 'phone'
-              ? 'Telefon raqamingizni kiriting — tasdiqlash kodini Telegram botimiz yuboradi.'
-              : 'Telegram’ga yuborilgan 4 xonali kodni kiriting.'}
+            Hisob yarating — ism, telefon raqami va 4 xonali kod kiriting.
           </p>
 
-          <div className="mt-5 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/10 p-3">
-            <Smartphone className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
-            <p className="text-sm">
-              {step === 'phone' ? (
-                <>
-                  Raqam avval <b>@{botUrl.replace('https://t.me/', '')}</b> botiga ulangan bo‘lishi
-                  kerak. <a href={botUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">Botni ochish</a>
-                </>
-              ) : (
-                <>
-                  Kod <b>{masked}</b> raqamiga bog‘langan Telegram chatiga yuborildi.
-                </>
-              )}
-            </p>
-          </div>
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="name">
+                Ism va familiya
+              </label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Aziz Karimov"
+                autoComplete="name"
+                required
+                autoFocus
+              />
+            </div>
 
-          {step === 'phone' ? (
-            <form onSubmit={requestCode} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="phone">
+                {t('phone')}
+              </label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+998 90 123 45 67"
+                inputMode="tel"
+                autoComplete="tel"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="phone">
-                  {t('phone')}
+                <label className="text-sm font-medium" htmlFor="pin">
+                  4 xonali kod
                 </label>
                 <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+998 90 123 45 67"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              {error && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                  {notFound && (
-                    <a
-                      href={botUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 block font-medium underline"
-                    >
-                      @legionclubrobot ga o‘tish →
-                    </a>
-                  )}
-                </div>
-              )}
-
-              <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {loading ? 'Yuborilmoqda...' : 'Kod yuborish'}
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={verify} className="mt-6 space-y-4">
-              {name && (
-                <p className="text-sm text-muted-foreground">
-                  Salom, <span className="font-medium text-foreground">{name}</span>! 👋
-                </p>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="code">
-                  Tasdiqlash kodi
-                </label>
-                <Input
-                  id="code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="1234"
+                  id="pin"
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
                   inputMode="numeric"
-                  autoComplete="one-time-code"
+                  autoComplete="new-password"
                   maxLength={4}
-                  className="text-center text-lg tracking-[0.5em]"
+                  className="text-center text-lg tracking-[0.4em]"
                   required
-                  autoFocus
                 />
               </div>
 
-              {error && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
-
-              <Button type="submit" size="lg" className="w-full" disabled={loading || code.length !== 4}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                {loading ? 'Tekshirilmoqda...' : 'Tasdiqlash va kirish'}
-              </Button>
-
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('phone')
-                    setCode('')
-                    setError('')
-                    setNotFound(false)
-                  }}
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="h-4 w-4" /> Raqamni o‘zgartirish
-                </button>
-
-                <button
-                  type="button"
-                  disabled={resendIn > 0 || loading}
-                  onClick={() => requestCode()}
-                  className="font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
-                >
-                  {resendIn > 0 ? `Qayta yuborish (${resendIn}s)` : 'Kodni qayta yuborish'}
-                </button>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="pin-confirm">
+                  Kodni takrorlang
+                </label>
+                <Input
+                  id="pin-confirm"
+                  type="password"
+                  value={pinConfirm}
+                  onChange={(e) =>
+                    setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))
+                  }
+                  placeholder="••••"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={4}
+                  className="text-center text-lg tracking-[0.4em]"
+                  required
+                />
               </div>
-            </form>
-          )}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Bu 4 xonali kod saytga kirishda parolingiz bo‘ladi. Uni eslab qoling.
+            </p>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+                {alreadyExists && (
+                  <Link href="/" className="mt-1 block font-medium underline">
+                    Kirish sahifasiga o‘tish →
+                  </Link>
+                )}
+              </div>
+            )}
+
+            <Button type="submit" size="lg" className="w-full" disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              {loading ? 'Yaratilmoqda...' : "Ro‘yxatdan o‘tish"}
+            </Button>
+          </form>
+
+          <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/10 p-3">
+            <Smartphone className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+            <div className="text-sm">
+              <p className="font-medium">Mini App orqali ham ro‘yxatdan o‘tish mumkin</p>
+              <p className="mt-1 text-muted-foreground">
+                Botga o‘tib Mini App’ni oching va shu yerda telefon raqamingiz
+                hamda 4 xonali kodni kiriting.
+              </p>
+              <a
+                href={BOT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                @{BOT_USERNAME} ga o‘tish →
+              </a>
+            </div>
+          </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Hisobingiz bormi?{' '}
@@ -244,6 +223,11 @@ export default function RegisterPage() {
               {t('login')}
             </Link>
           </p>
+
+          <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Ma’lumotlaringiz xavfsiz saqlanadi
+          </div>
         </div>
       </div>
     </div>

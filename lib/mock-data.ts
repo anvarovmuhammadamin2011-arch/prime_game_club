@@ -51,40 +51,22 @@ export const COMPUTER_TYPES: Record<ComputerType, ComputerTypeInfo> = {
   },
 }
 
-const STATUSES: Computer['status'][] = [
-  'available',
-  'available',
-  'available',
-  'booked',
-  'maintenance',
-  'pending',
-]
-
 function makeComputers(): Computer[] {
   const list: Computer[] = []
   const config: { type: ComputerType; count: number; row: number }[] = [
     { type: 'VIP', count: 20, row: 0 },
-    { type: 'PS5', count: 2, row: 1 },
   ]
   let idx = 1
   for (const c of config) {
     for (let i = 0; i < c.count; i++) {
-      const status =
-        idx % 5 === 0
-          ? 'booked'
-          : idx % 7 === 0
-            ? 'maintenance'
-            : idx % 11 === 0
-              ? 'pending'
-              : 'available'
-      const isBusy = status === 'booked'
+      const status: Computer['status'] = 'available'
       list.push({
         id: `pc-${idx}`,
         label: `${COMPUTER_TYPES[c.type].name.split(' ')[0].toUpperCase()}-${String(i + 1).padStart(2, '0')}`,
         type: c.type,
         status,
         zone: COMPUTER_TYPES[c.type].zone,
-        temp: isBusy ? 55 + ((idx * 7) % 25) : 35 + ((idx * 3) % 10),
+        temp: 35 + ((idx * 3) % 10),
         uptimeHours: 100 + ((idx * 37) % 900),
         x: 4 + i * 8,
         y: 4 + c.row * 14,

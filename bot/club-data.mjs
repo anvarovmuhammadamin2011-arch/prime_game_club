@@ -2,7 +2,7 @@
 // Narxlar va menyu lib/mock-data.ts bilan bir xil bo'lishi kerak.
 
 export const CLUB = {
-  name: 'Legion Game Club',
+  name: 'Prime Game Club',
   tagline: 'Premium gaming klubi',
   phone: process.env.CLUB_PHONE || '+998 90 123 45 67',
   address:
@@ -84,26 +84,15 @@ export const PROMOS = [
 // Sayt xaritasidagi kompyuterlar bilan bir xil ro'yxat (lib/mock-data.ts).
 export function makeComputers() {
   const list = []
-  const config = [
-    { type: 'VIP', count: 20, row: 0 },
-    { type: 'PS5', count: 2, row: 1 },
-  ]
+  const config = [{ type: 'VIP', count: 20, row: 0 }]
   let idx = 1
   for (const c of config) {
     for (let i = 0; i < c.count; i++) {
-      const status =
-        idx % 5 === 0
-          ? 'booked'
-          : idx % 7 === 0
-            ? 'maintenance'
-            : idx % 11 === 0
-              ? 'pending'
-              : 'available'
       list.push({
         id: `pc-${idx}`,
         label: `${c.type}-${String(i + 1).padStart(2, '0')}`,
         type: c.type,
-        status,
+        status: 'available',
         row: c.row,
       })
       idx++

@@ -3,11 +3,10 @@
 import { useApp } from '@/context/app-context'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { Role, Lang } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Notifications } from '@/components/notifications'
-import { Badge } from '@/components/ui/primitives'
 
 import {
   Home,
@@ -24,8 +23,6 @@ import {
   Sun,
   Moon,
   LogOut,
-  Menu,
-  X,
   Gamepad2,
   Languages,
 } from 'lucide-react'
@@ -81,17 +78,12 @@ export function AppShell({
   } = useApp()
   const router = useRouter()
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     if (hydrated && (!currentUser || currentUser.role !== role)) {
       router.replace('/')
     }
   }, [hydrated, currentUser, role, router])
-
-  useEffect(() => {
-    setOpen(false)
-  }, [pathname])
 
   if (!hydrated || !currentUser || currentUser.role !== role) {
     return (
@@ -116,19 +108,12 @@ export function AppShell({
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <button
-              className="-ml-1 inline-flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-secondary lg:hidden"
-              onClick={() => setOpen((o) => !o)}
-              aria-label="Menu"
-            >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
             <Link href={items[0].href} className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Gamepad2 className="h-5 w-5" />
               </span>
               <span className="font-heading text-lg font-bold tracking-tight">
-                Legion Game Club
+                Prime Game Club
               </span>
             </Link>
           </div>
@@ -197,44 +182,47 @@ export function AppShell({
           </div>
         </div>
 
-        {/* Mobile drawer */}
-        {open && (
-          <nav className="border-t border-border bg-background px-4 py-3 lg:hidden">
-            <div className="flex flex-col gap-1">
-              {items.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href !== items[0].href && pathname.startsWith(item.href))
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium',
-                      active
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-secondary',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {t(item.labelKey)}
-                    {item.badge && pendingCount > 0 && (
-                      <Badge tone="danger" className="ml-auto">
-                        {pendingCount}
-                      </Badge>
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
-          </nav>
-        )}
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 sm:py-8 lg:pb-8">
         {children}
       </main>
+
+      {/* Mobile/Telegram Mini App: pastki navigatsiya paneli */}
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+        <div className="mx-auto flex max-w-6xl items-stretch px-1">
+          {items.map((item) => {
+            const active =
+              pathname === item.href ||
+              (item.href !== items[0].href && pathname.startsWith(item.href))
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'relative flex flex-1 flex-col items-center gap-1 px-1 py-2.5 text-[11px] font-medium transition-colors',
+                  active ? 'text-primary' : 'text-muted-foreground',
+                )}
+              >
+                {active && (
+                  <span className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-primary" />
+                )}
+                <span className="relative">
+                  <Icon className="h-5 w-5" />
+                  {item.badge && pendingCount > 0 && (
+                    <span className="absolute -right-2.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-semibold text-destructive-foreground">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
+                <span className="max-w-full truncate">{t(item.labelKey)}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

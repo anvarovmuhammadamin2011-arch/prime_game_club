@@ -3,6 +3,7 @@
 import { useApp } from '@/context/app-context'
 import { Card, Button, Badge, StatCard, PageHeader } from '@/components/ui/primitives'
 import { formatSom } from '@/lib/format'
+import { phoneKey } from '@/lib/phone'
 import {
   Star,
   Clock,
@@ -25,7 +26,9 @@ export default function ProfilePage() {
   const { currentUser, bookings, redeemBonusPoints, showNotification, t } = useApp()
   if (!currentUser) return null
 
-  const history = bookings.filter((b) => b.userId === currentUser.id)
+  const history = bookings.filter((b) =>
+    b.phone ? phoneKey(b.phone) === phoneKey(currentUser.phone) : b.userId === currentUser.id,
+  )
   const canRedeem = currentUser.bonusPoints >= 100
 
   const copyReferral = () => {
@@ -171,6 +174,7 @@ export default function ProfilePage() {
                 <div>
                   <p className="text-mono-num font-medium">{b.computerLabel}</p>
                   <p className="text-xs text-muted-foreground">
+                    {b.code ? `Kod: ${b.code} · ` : ''}
                     {b.date} · {b.startTime} · {b.hours} soat
                   </p>
                 </div>

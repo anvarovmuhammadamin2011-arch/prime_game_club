@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { BOT_URL } from '@/lib/bot-link'
 import {
   checkRateLimit,
   findBotUserByPhone,
@@ -10,8 +11,6 @@ import {
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-const BOT_URL = 'https://t.me/legionclubrobot'
 
 const bad = (message: string, status: number, error: string) =>
   NextResponse.json({ ok: false, error, message }, { status })
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
   const user = await findBotUserByPhone(phone)
   if (!user) {
     return bad(
-      'Bu raqam Telegram botimizga hali ulanmagan. @legionclubrobot ga o‘tib /start bosing va raqamingizni yuboring.',
+      'Bu raqam ro‘yxatdan o‘tmagan. Avval Mini App yoki saytda ro‘yxatdan o‘ting.',
       404,
       'not_found',
     )

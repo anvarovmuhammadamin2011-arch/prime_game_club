@@ -6,6 +6,7 @@ import { Card, Button, Badge, StatCard, PageHeader } from '@/components/ui/primi
 import { COMPUTER_TYPES } from '@/lib/mock-data'
 import { STATUS_META } from '@/lib/status'
 import { formatSom } from '@/lib/format'
+import { phoneKey } from '@/lib/phone'
 import {
   Clock,
   CalendarPlus,
@@ -21,7 +22,9 @@ export default function HomePage() {
 
   const available = computers.filter((c) => c.status === 'available').length
   const myBookings = bookings.filter(
-    (b) => b.userId === currentUser.id && b.status !== 'rejected',
+    (b) =>
+      (b.phone ? phoneKey(b.phone) === phoneKey(currentUser.phone) : b.userId === currentUser.id) &&
+      b.status !== 'rejected',
   )
   const favorites = computers.filter((c) =>
     currentUser.favorites.includes(c.id),
@@ -178,6 +181,7 @@ export default function HomePage() {
                   <div>
                     <p className="text-mono-num font-medium">{b.computerLabel}</p>
                     <p className="text-xs text-muted-foreground">
+                      {b.code ? `Kod: ${b.code} · ` : ''}
                       {b.date} · {b.startTime} · {b.hours} soat
                     </p>
                   </div>

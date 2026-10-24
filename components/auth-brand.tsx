@@ -25,7 +25,7 @@ export function AuthBrand() {
           <Gamepad2 className="h-6 w-6" />
         </span>
         <span className="font-heading text-xl font-bold tracking-tight">
-          Legion Game Club
+          Prime Game Club
         </span>
       </div>
 
@@ -34,7 +34,7 @@ export function AuthBrand() {
           O'zbekistondagi eng zamonaviy gaming klubi
         </h2>
         <p className="max-w-md text-primary-foreground/80 text-pretty">
-          22 ta premium ish stansiyasi, PS5 zonalari va to'liq raqamli boshqaruv
+          20 ta premium ish stansiyasi va to'liq raqamli boshqaruv
           tizimi. Bir necha soniyada o'rningizni bron qiling.
         </p>
         <ul className="space-y-4">
@@ -53,7 +53,7 @@ export function AuthBrand() {
       </div>
 
       <p className="relative text-sm text-primary-foreground/60">
-        © 2026 Legion Game Club. Barcha huquqlar himoyalangan.
+        © 2026 Prime Game Club. Barcha huquqlar himoyalangan.
       </p>
     </div>
   )

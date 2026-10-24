@@ -6,9 +6,15 @@
 //
 // Diqqat: quick tunnel URL har ishga tushirishda o'zgaradi.
 
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { setDefaultResultOrder } from 'node:dns'
 import { readFile, writeFile } from 'node:fs/promises'
+import { setDefaultAutoSelectFamily } from 'node:net'
 import path from 'node:path'
+
+// Ba'zi tarmoqlarda IPv6 manzil ochilmaydi va fetch 10 soniya kutib qoladi.
+setDefaultResultOrder('ipv4first')
+setDefaultAutoSelectFamily(false)
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const ENV_FILE = path.join(ROOT, '.env.local')
@@ -27,6 +33,19 @@ const child = spawn(
 )
 
 let announced = false
+
+function restartBotService() {
+  return new Promise((resolve) => {
+    execFile('systemctl', ['--user', 'restart', 'legion-bot.service'], (err) => {
+      if (err) {
+        console.warn('   Bot servisi qayta ishga tushmadi:', err.message)
+        resolve(false)
+        return
+      }
+      resolve(true)
+    })
+  })
+}
 
 async function onUrl(url) {
   if (announced) return
@@ -64,7 +83,12 @@ async function onUrl(url) {
     console.warn('   Telegram bilan aloqa yo‘q:', e.message)
   }
 
-  console.log('\n   /start tugmalari ham yangilanishi uchun: pnpm bot\n')
+  const restarted = await restartBotService()
+  if (restarted) {
+    console.log('   Bot servisi yangi URL bilan qayta ishga tushdi')
+  } else {
+    console.log('\n   /start tugmalari yangilanishi uchun botni qayta ishga tushiring: pnpm bot\n')
+  }
 }
 
 function scan(chunk) {

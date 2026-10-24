@@ -29,6 +29,8 @@ function BookingWizard() {
   const [hours, setHours] = useState(2)
   const [extras, setExtras] = useState<string[]>([])
   const [payment, setPayment] = useState('cash')
+  const [submitting, setSubmitting] = useState(false)
+  const [created, setCreated] = useState<{ code?: string } | null>(null)
   const useBonus = false
 
   const availablePcs = useMemo(
@@ -50,9 +52,10 @@ function BookingWizard() {
   const toggleExtra = (id: string) =>
     setExtras((s) => (s.includes(id) ? s.filter((e) => e !== id) : [...s, id]))
 
-  const confirm = () => {
-    if (!selectedPc) return
-    const ok = createBooking({
+  const confirm = async () => {
+    if (!selectedPc || submitting) return
+    setSubmitting(true)
+    const result = await createBooking({
       computerId: selectedPc.id,
       computerLabel: selectedPc.label,
       date,
@@ -62,9 +65,8 @@ function BookingWizard() {
       total,
       paymentMethod: payment,
     })
-    if (ok) {
-        router.push('/home')
-    }
+    setSubmitting(false)
+    if (result.ok) setCreated({ code: result.code })
   }
 
   const canNext = step === 0 ? !!pcId : true
@@ -318,14 +320,42 @@ function BookingWizard() {
                   Davom etish
                 </Button>
               ) : (
-                <Button className="flex-1" onClick={confirm}>
-                  {t('confirm')}
+                <Button className="flex-1" onClick={confirm} disabled={submitting}>
+                  {submitting ? 'Yuborilmoqda...' : t('confirm')}
                 </Button>
               )}
             </div>
           </Card>
         </div>
       </div>
+
+      {created && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <Card className="w-full max-w-sm p-6 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
+              <Check className="h-7 w-7" />
+            </span>
+            <h3 className="mt-4 font-heading text-xl font-bold">Bron qabul qilindi!</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bu kodni saqlab qo‘ying — klubda administratorga ayting.
+            </p>
+            <div className="my-5 rounded-xl border border-dashed border-primary/40 bg-primary/10 px-4 py-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Bron kodi
+              </p>
+              <p className="text-mono-num mt-1 text-4xl font-bold tracking-[0.3em] text-primary">
+                {created.code || '—'}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Administrator tasdiqlagach Telegram orqali xabar beramiz.
+            </p>
+            <Button className="mt-5 w-full" onClick={() => router.push('/home')}>
+              Tushundim
+            </Button>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

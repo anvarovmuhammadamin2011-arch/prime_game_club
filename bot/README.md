@@ -1,77 +1,88 @@
-# Telegram bot (@legionclubrobot)
+# Prime Game Club — Telegram bot
 
-Klub sayti uchun lokal bot. Hech qanday qo'shimcha kutubxona talab qilmaydi —
-Node'ning o'z `fetch`'i bilan Telegram long polling ishlatadi.
+Botning yagona vazifasi — foydalanuvchiga **Mini App**'ni ochish tugmasini
+berish. Bron qilish, ro'yxatdan o'tish, narxlar, bar menyusi va boshqa barcha
+amallar Mini App ichida bajariladi.
+
+Bot Node'ning o'z `fetch`'i bilan Telegram long polling ishlatadi — qo'shimcha
+kutubxona kerak emas.
 
 ## Ishga tushirish
+
+Doimiy ish uchun systemd servisi ishlatiladi (pastga qarang). Qo'lda test
+qilish uchun:
 
 ```bash
 pnpm bot
 ```
 
-Token `.env.local` faylidan o'qiladi:
+> `legion-bot` servisi ishlab turganida `pnpm bot` ni qo'lda ishga tushirmang —
+> Telegram long polling ikki nusxada 409 xato beradi. Avval
+> `systemctl --user stop legion-bot`.
+
+`.env.local`:
 
 ```env
 TELEGRAM_BOT_TOKEN=...
+ADMIN_CHAT_ID=...          # yangi bron bildirishnomalari uchun
+SITE_URL=https://...       # Mini App HTTPS manzili (tunnel yangilaydi)
 ```
 
-## Buyruqlar
+## Foydalanuvchi uchun
 
-| Buyruq | Vazifasi |
-| --- | --- |
-| `/start` | Asosiy menyu |
-| `/book` | 4 bosqichli bron qilish |
-| `/prices` | Zonalar narxlari |
-| `/status` | Bo'sh kompyuterlar |
-| `/bar` | Bar menyusi |
-| `/promo` | Aksiyalar |
-| `/mybookings` | Mening bronlarim |
-| `/contact` | Kontakt |
-| `/id` | Chat ID (admin sozlash uchun) |
-| `/cancel` | Jarayonni bekor qilish |
+- Botga `/start` yoki istalgan xabar yozilganda bitta **Mini App'ni ochish**
+  tugmasi yuboriladi.
+- Chatning pastki chap burchagidagi doimiy **Mini App** menyu tugmasi ham
+  shu sahifani ochadi.
+- Boshqa buyruqlar, menyular va bron qilish flow'lari botdan olib tashlangan.
 
-## Mini App va ro'yxatdan o'tish
+## Admin uchun
 
-Bot Mini App sifatida **lokal saytni Cloudflare tunnel orqali** ochadi:
+Yangi bron haqidagi bildirishnoma `ADMIN_CHAT_ID` ga tasdiqlash/rad etish
+tugmalari bilan keladi. Tugma bosilganda bron holati yangilanadi va mijozga
+natija yuboriladi.
+
+Bronni kod bo'yicha tekshirish, ro'yxat va boshqa boshqaruv ishlari saytning
+admin panelida (`/admin`) bajariladi. Botda `/kod`, `/id`, `/register` kabi
+buyruqlar yo'q.
+
+## Mini App va tunnel
+
+Mini App **Cloudflare quick tunnel** orqali HTTPS bilan ochiladi:
 
 ```bash
-pnpm dev      # 1-terminal
-pnpm tunnel   # 2-terminal: HTTPS URL yaratadi + bot menyusini yangilaydi
-pnpm bot      # 3-terminal
+pnpm dev      # sayt
+pnpm tunnel   # HTTPS URL + bot menyusini yangilash
+pnpm bot      # bot
 ```
 
-Quick tunnel URL har ishga tushirishda o'zgaradi, shuning uchun `pnpm tunnel`
-uni `.env.local` ga yozadi va Telegram menyu tugmasini yangilaydi. `/start`
-ichidagi tugmalar yangilanishi uchun `pnpm bot` ni qayta ishga tushiring.
+Quick tunnel URL har ishga tushirishda o'zgaradi. `pnpm tunnel` URL'ni
+`.env.local` dagi `SITE_URL` ga yozadi, Telegram menyu tugmasini yangilaydi va
+`legion-bot` servisini qayta ishga tushiradi.
 
-### Ro'yxatdan o'tish oqimi
+## Doimiy ishlash (systemd)
 
-1. Foydalanuvchi botga `/start` bosadi va **telefon raqamini yuboradi**
-   (`request_contact`) — raqam `bot/data/users.json` ga yoziladi.
-2. Mini App'da `/register` sahifasida shu raqam kiritiladi.
-3. `POST /api/auth/lookup` raqamni qidiradi:
-   - topilsa — 4 xonali kod Telegram chatiga yuboriladi (5 daqiqa amal qiladi);
-   - topilmasa — "botga start bosing" xabari qaytadi.
-4. Foydalanuvchi kodni kiritadi → `POST /api/auth/verify` tekshiradi →
-   profil ochiladi.
+| Servis | Vazifasi |
+| --- | --- |
+| `legion-web.service` | Next.js sayt (`localhost:3000`) |
+| `legion-tunnel.service` | Cloudflare quick tunnel + URL'ni yangilash |
+| `legion-bot.service` | Telegram bot (long polling) |
 
-Xavfsizlik: 3 ta kod so'rovi / 10 daqiqa, 5 ta noto'g'ri urinish, kod bir marta
-ishlatiladi. Kodlar xotirada saqlanadi (server qayta ishga tushsa o'chadi).
+```bash
+systemctl --user status legion-web legion-tunnel legion-bot
+journalctl --user -u legion-bot -f        # bot loglari
+systemctl --user restart legion-bot       # botni qayta ishga tushirish
+systemctl --user stop legion-bot          # to'xtatish
+```
 
-> Vercel'dagi eski build bu API'larni bilmaydi. Uni yangilash uchun saytni qayta
-> deploy qilish va doimiy (faylga emas) ma'lumot bazasini ulash kerak.
-
-## Admin ulash
-
-1. Botga `/id` yuboring — chat ID ni olasiz.
-2. `.env.local` ga yozing: `ADMIN_CHAT_ID=123456789`
-3. Botni qayta ishga tushiring.
-
-Shundan keyin har bir yangi bron admin chat'iga tasdiqlash/rad etish
-tugmalari bilan keladi, foydalanuvchiga esa natija avtomatik yuboriladi.
+Unit fayllar: `~/.config/systemd/user/legion-*.service` (fayl nomlari tarixiy,
+ichki tavsif — Prime Game Club). Node yo'li unit fayllarda mutlaq ko'rsatilgan;
+Node yangilansa, shu yo'lni yangilash kerak.
 
 ## Ma'lumotlar
 
-- Bronlar: `bot/data/bookings.json` (git'ga tushmaydi)
+- Bronlar: `bot/data/bookings.json` (sayt API'lari va bot uchun umumiy, git'ga tushmaydi)
+- Foydalanuvchilar: `bot/data/users.json` (telefon + 4 xonali kod hash'i)
+- Ro'yxatdan o'tish: Mini App yoki sayt orqali (`/register`)
 - Narxlar/menyu: `bot/club-data.mjs` (`lib/mock-data.ts` bilan bir xil)
 - Klub manzili/telefon: `.env.local` dagi `CLUB_*` o'zgaruvchilari

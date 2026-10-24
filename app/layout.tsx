@@ -4,6 +4,7 @@ import { Inter, Orbitron, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/context/app-context'
 import { TelegramWebApp } from '@/components/telegram-webapp'
+import { TelegramAutoLogin } from '@/components/telegram-auto-login'
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
 const orbitron = Orbitron({ variable: '--font-orbitron', subsets: ['latin'] })
@@ -13,7 +14,7 @@ const jetbrains = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Legion Game Club — Gaming Club Management',
+  title: 'Prime Game Club',
   description:
     "O'zbekiston premium gaming klubi uchun zamonaviy boshqaruv tizimi",
   generator: 'v0.app',
@@ -37,7 +38,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="font-sans antialiased bg-background text-foreground">
-        <AppProvider>{children}</AppProvider>
+        <AppProvider>
+          {children}
+          <TelegramAutoLogin />
+        </AppProvider>
         <TelegramWebApp />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

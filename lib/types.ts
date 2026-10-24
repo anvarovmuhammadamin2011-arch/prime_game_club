@@ -45,11 +45,14 @@ export interface Booking {
   id: string
   userId: string
   userName: string
+  phone?: string
+  code?: string
   computerId: string
   computerLabel: string
   date: string
   startTime: string
   hours: number
+  seats?: number
   extras: string[]
   total: number
   paymentMethod: string

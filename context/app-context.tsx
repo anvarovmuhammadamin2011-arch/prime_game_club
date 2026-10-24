@@ -59,13 +59,18 @@ interface AppContextValue extends AppState {
   t: (key: string) => string
   setLanguage: (l: Lang) => void
   toggleTheme: () => void
-  login: (phone: string, password: string) => { success: boolean; role?: Role }
+  login: (phone: string, password: string, silent?: boolean) => { success: boolean; role?: Role }
   logout: () => void
   register: (name: string, phone: string, password: string) => boolean
   registerVerified: (name: string, phone: string) => boolean
-  createBooking: (data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>) => boolean
-  confirmBooking: (id: string) => void
-  rejectBooking: (id: string) => void
+  createBooking: (data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>) => Promise<{
+    ok: boolean
+    code?: string
+    error?: string
+  }>
+  confirmBooking: (id: string) => Promise<void>
+  rejectBooking: (id: string) => Promise<void>
+  refreshBookings: () => Promise<void>
   setMaintenanceMode: (id: string, on: boolean) => void
   sellBarProduct: (productId: string, qty: number) => void
   addBarProduct: (data: Omit<BarProduct, 'id'>) => void
@@ -81,7 +86,31 @@ interface AppContextValue extends AppState {
 
 const AppContext = createContext<AppContextValue | null>(null)
 
-const STORAGE_KEY = 'legion-game-club-state-v2'
+const STORAGE_KEY = 'prime-game-club-state-v2'
+const LEGACY_STORAGE_KEY = 'legion-game-club-state-v2'
+
+/**
+ * Kompyuterlar ro'yxati configdan olinadi (lib/mock-data.ts).
+ * Eski localStorage'da qolgan ro'yxatni yangilaymiz, lekin mavjud
+ * statuslarni (band/texnik) saqlab qolamiz.
+ */
+function syncComputers(stored: Computer[] | undefined): Computer[] {
+  if (!Array.isArray(stored) || stored.length === 0) return INITIAL_COMPUTERS
+
+  // Eski ro'yxat (masalan, 20 PC + 2 PS5) bo'lsa — configdagi yangi
+  // ro'yxatga o'tamiz. Mos kelsa, mavjud statuslarni saqlab qolamiz.
+  const expectedIds = new Set(INITIAL_COMPUTERS.map((c) => c.id))
+  const sameInventory =
+    stored.length === INITIAL_COMPUTERS.length &&
+    stored.every((c) => expectedIds.has(c.id))
+  if (!sameInventory) return INITIAL_COMPUTERS
+
+  const byId = new Map(stored.map((c) => [c.id, c]))
+  return INITIAL_COMPUTERS.map((c) => {
+    const previous = byId.get(c.id)
+    return previous ? { ...c, status: previous.status } : c
+  })
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>({
@@ -105,10 +134,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // hydrate from localStorage
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw =
+        localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw)
-        setState((s) => ({ ...s, ...parsed, notifications: [], hydrated: true }))
+        setState((s) => ({
+          ...s,
+          ...parsed,
+          computers: syncComputers(parsed.computers),
+          notifications: [],
+          hydrated: true,
+        }))
       } else {
         setState((s) => ({ ...s, hydrated: true }))
       }
@@ -163,12 +199,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = useCallback(
-    (phone: string, password: string) => {
+    (phone: string, password: string, silent = false) => {
       const user = state.users.find(
         (u) => u.phone === phone.trim() && u.password === password,
       )
       if (!user) {
-        showNotification("Telefon yoki parol noto'g'ri", 'error')
+        if (!silent) showNotification("Telefon yoki parol noto'g'ri", 'error')
         return { success: false }
       }
       setState((s) => ({ ...s, currentUser: user }))
@@ -238,86 +274,182 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [state.users, showNotification],
   )
 
-  const audit = (action: string): AuditEntry => ({    id: uid('au'),
-    action,
-    by: state.currentUser?.name ?? 'system',
-    at: nowStamp(),
-  })
+  const refreshBookings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bookings', { cache: 'no-store' })
+      const payload = (await res.json().catch(() => null)) as
+        | { ok?: boolean; bookings?: Booking[] }
+        | null
+      if (res.ok && payload?.ok && Array.isArray(payload.bookings)) {
+        setState((s) => ({ ...s, bookings: payload.bookings as Booking[] }))
+      }
+    } catch {
+      /* server vaqtincha ishlamasa, lokal holat qoladi */
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!state.hydrated) return
+    void refreshBookings()
+    const timer = setInterval(() => {
+      void refreshBookings()
+    }, 20_000)
+    return () => clearInterval(timer)
+  }, [state.hydrated, refreshBookings])
 
   const createBooking = useCallback(
-    (data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>) => {
+    async (
+      data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>,
+    ) => {
       const user = state.currentUser
-      if (!user) return false
-      if (data.paymentMethod !== 'cash') return false
-      const booking: Booking = {
-        ...data,
-        id: uid('b'),
-        userId: user.id,
-        userName: user.name,
-        status: 'pending',
-        createdAt: new Date().toISOString().slice(0, 10),
+      if (!user) return { ok: false, error: 'Avval tizimga kiring' }
+      if (data.paymentMethod !== 'cash') {
+        return { ok: false, error: "Faqat naqd to'lov mavjud" }
       }
-      const bonusEarned = Math.round(data.total * 0.01)
-      setState((s) => {
-        const updatedUsers = s.users.map((u) =>
-          u.id === user.id ? { ...u, bonusPoints: u.bonusPoints + bonusEarned } : u,
-        )
-        const updatedCurrent = updatedUsers.find((u) => u.id === user.id) ?? null
-        return {
-          ...s,
-          bookings: [booking, ...s.bookings],
-          users: updatedUsers,
-          currentUser: updatedCurrent,
-          computers: s.computers.map((c) =>
-            c.id === data.computerId ? { ...c, status: 'pending' } : c,
-          ),
+
+      const computer = state.computers.find((c) => c.id === data.computerId)
+
+      try {
+        const res = await fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: user.name,
+            phone: user.phone,
+            zone: computer?.type || 'VIP',
+            computerId: data.computerId,
+            computerLabel: data.computerLabel,
+            seats: data.seats || 1,
+            date: data.date,
+            startTime: data.startTime,
+            hours: data.hours,
+            extras: data.extras,
+            paymentMethod: data.paymentMethod,
+          }),
+        })
+        const payload = (await res.json().catch(() => null)) as
+          | { ok?: boolean; booking?: Booking; message?: string }
+          | null
+
+        if (!res.ok || !payload?.ok || !payload.booking) {
+          const message = payload?.message || 'Bron yaratilmadi. Qayta urinib ko‘ring.'
+          showNotification(message, 'error')
+          return { ok: false, error: message }
         }
-      })
-      showNotification('Bron yaratildi, tasdiqlash kutilmoqda', 'success')
-      return true
+
+        const booking = payload.booking
+        const bonusEarned = Math.round((booking.total || data.total || 0) * 0.01)
+        setState((s) => {
+          const users = s.users.map((u) =>
+            u.id === user.id ? { ...u, bonusPoints: u.bonusPoints + bonusEarned } : u,
+          )
+          return {
+            ...s,
+            bookings: [booking, ...s.bookings.filter((b) => b.id !== booking.id)],
+            users,
+            currentUser: users.find((u) => u.id === user.id) ?? s.currentUser,
+            computers: s.computers.map((c) =>
+              c.id === data.computerId ? { ...c, status: 'pending' } : c,
+            ),
+          }
+        })
+        showNotification('Bron yaratildi, tasdiqlash kutilmoqda', 'success')
+        return { ok: true, code: booking.code }
+      } catch {
+        showNotification('Server bilan aloqa yo‘q. Internetni tekshiring.', 'error')
+        return { ok: false, error: 'Server bilan aloqa yo‘q' }
+      }
     },
-    [state.currentUser, showNotification],
+    [state.currentUser, state.computers, showNotification],
   )
 
-  const confirmBooking = useCallback((id: string) => {
-    setState((s) => {
-      const booking = s.bookings.find((b) => b.id === id)
-      return {
-        ...s,
-        bookings: s.bookings.map((b) =>
-          b.id === id ? { ...b, status: 'confirmed' } : b,
-        ),
-        computers: s.computers.map((c) =>
-          c.id === booking?.computerId ? { ...c, status: 'booked' } : c,
-        ),
-        auditLog: [audit(`Bron tasdiqlandi: ${id}`), ...s.auditLog],
+  const confirmBooking = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'confirmed' }),
+        })
+        const payload = (await res.json().catch(() => null)) as
+          | { ok?: boolean; message?: string }
+          | null
+        if (!res.ok || !payload?.ok) {
+          showNotification(payload?.message || 'Bronni tasdiqlashda xatolik', 'error')
+          return
+        }
+        setState((s) => {
+          const current = s.bookings.find((b) => b.id === id)
+          return {
+            ...s,
+            bookings: s.bookings.map((b) =>
+              b.id === id ? { ...b, status: 'confirmed' } : b,
+            ),
+            computers: s.computers.map((c) =>
+              c.id === current?.computerId ? { ...c, status: 'booked' } : c,
+            ),
+            auditLog: [
+              {
+                id: uid('au'),
+                action: `Bron tasdiqlandi: ${id}`,
+                by: s.currentUser?.name ?? 'system',
+                at: nowStamp(),
+              },
+              ...s.auditLog,
+            ],
+          }
+        })
+        showNotification('Bron tasdiqlandi', 'success')
+      } catch {
+        showNotification('Server bilan aloqa yo‘q', 'error')
       }
-    })
-    showNotification('Bron tasdiqlandi', 'success')
-  }, [showNotification, state.currentUser])
+    },
+    [showNotification],
+  )
 
-  const rejectBooking = useCallback((id: string) => {
-    setState((s) => {
-      const booking = s.bookings.find((b) => b.id === id)
-      const users = s.users
-      return {
-        ...s,
-        bookings: s.bookings.map((b) =>
-          b.id === id ? { ...b, status: 'rejected' } : b,
-        ),
-        users,
-        currentUser:
-          s.currentUser && booking?.userId === s.currentUser.id
-            ? users.find((u) => u.id === s.currentUser!.id) ?? s.currentUser
-            : s.currentUser,
-        computers: s.computers.map((c) =>
-          c.id === booking?.computerId ? { ...c, status: 'available' } : c,
-        ),
-        auditLog: [audit(`Bron rad etildi: ${id}`), ...s.auditLog],
+  const rejectBooking = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'rejected' }),
+        })
+        const payload = (await res.json().catch(() => null)) as
+          | { ok?: boolean; message?: string }
+          | null
+        if (!res.ok || !payload?.ok) {
+          showNotification(payload?.message || 'Bronni rad etishda xatolik', 'error')
+          return
+        }
+        setState((s) => {
+          const current = s.bookings.find((b) => b.id === id)
+          return {
+            ...s,
+            bookings: s.bookings.map((b) =>
+              b.id === id ? { ...b, status: 'rejected' } : b,
+            ),
+            computers: s.computers.map((c) =>
+              c.id === current?.computerId ? { ...c, status: 'available' } : c,
+            ),
+            auditLog: [
+              {
+                id: uid('au'),
+                action: `Bron rad etildi: ${id}`,
+                by: s.currentUser?.name ?? 'system',
+                at: nowStamp(),
+              },
+              ...s.auditLog,
+            ],
+          }
+        })
+        showNotification('Bron rad etildi', 'warning')
+      } catch {
+        showNotification('Server bilan aloqa yo‘q', 'error')
       }
-    })
-    showNotification('Bron rad etildi, pul qaytarildi', 'warning')
-  }, [showNotification, state.currentUser])
+    },
+    [showNotification],
+  )
 
   const setMaintenanceMode = useCallback((id: string, on: boolean) => {
     setState((s) => ({
@@ -432,6 +564,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createBooking,
     confirmBooking,
     rejectBooking,
+    refreshBookings,
     setMaintenanceMode,
     sellBarProduct,
     addBarProduct,
