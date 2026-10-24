@@ -17,7 +17,6 @@ export const metadata: Metadata = {
   title: 'Prime Game Club',
   description:
     "O'zbekiston premium gaming klubi uchun zamonaviy boshqaruv tizimi",
-  generator: 'v0.app',
 }
 
 export const viewport: Viewport = {
