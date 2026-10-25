@@ -4,11 +4,9 @@
 export const CLUB = {
   name: 'Prime Game Club',
   tagline: 'Premium gaming klubi',
-  phone: process.env.CLUB_PHONE || '+998 90 123 45 67',
-  address:
-    process.env.CLUB_ADDRESS ||
-    "Toshkent shahri (manzilni bot/club-data.mjs yoki .env.local orqali o'zgartiring)",
-  workHours: process.env.CLUB_WORK_HOURS || 'Har kuni 10:00 - 03:00',
+  phone: process.env.CLUB_PHONE || '+998 93 095 19 96',
+  address: process.env.CLUB_ADDRESS || 'Andijon viloyati, Baliqchi tumani, Chinobod shaharchasi',
+  workHours: process.env.CLUB_WORK_HOURS || 'Har kuni 09:00 - 00:00',
   siteUrl: process.env.SITE_URL || 'http://localhost:3000',
 }
 

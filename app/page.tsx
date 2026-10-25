@@ -12,7 +12,7 @@ import type { Role } from '@/lib/types'
 
 const DEMO: { label: string; phone: string; password: string }[] = [
   { label: 'Foydalanuvchi', phone: '+998901234567', password: 'user123' },
-  { label: 'Admin', phone: '+998901111111', password: 'admin123' },
+  { label: 'Admin', phone: '+998930951996', password: 'primegameclub' },
   { label: 'Super Admin', phone: '+998900000000', password: 'super123' },
 ]
 

@@ -14,3 +14,5 @@ node_modules
 
 # Bot runtime data
 bot/data/
+.vercel
+.env*

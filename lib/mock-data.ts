@@ -107,8 +107,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'a1',
     name: 'Admin User',
-    phone: '+998901111111',
-    password: 'admin123',
+    phone: '+998930951996',
+    password: 'primegameclub',
     role: 'admin',
     bonusPoints: 0,
     referralCode: 'ADMIN',

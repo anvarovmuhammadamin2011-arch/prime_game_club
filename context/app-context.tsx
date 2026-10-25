@@ -112,6 +112,20 @@ function syncComputers(stored: Computer[] | undefined): Computer[] {
   })
 }
 
+/**
+ * Seed hisoblarni (admin/superadmin) configdan yangilaymiz, saytda
+ * ro'yxatdan o'tgan foydalanuvchilarni saqlab qolamiz.
+ */
+function syncUsers(stored: User[] | undefined): User[] {
+  if (!Array.isArray(stored)) return INITIAL_USERS
+  const seeded = new Map(INITIAL_USERS.map((u) => [u.id, u]))
+  const merged = stored.map((u) => seeded.get(u.id) ?? u)
+  for (const u of INITIAL_USERS) {
+    if (!stored.some((s) => s.id === u.id)) merged.push(u)
+  }
+  return merged
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>({
     currentUser: null,
@@ -142,6 +156,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...s,
           ...parsed,
           computers: syncComputers(parsed.computers),
+          users: syncUsers(parsed.users),
           notifications: [],
           hydrated: true,
         }))
