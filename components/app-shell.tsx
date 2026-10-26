@@ -11,7 +11,6 @@ import { Notifications } from '@/components/notifications'
 import {
   Home,
   Map,
-  CalendarPlus,
   User as UserIcon,
   LayoutDashboard,
   MonitorSmartphone,
@@ -38,7 +37,6 @@ const NAV: Record<Role, NavItem[]> = {
   user: [
     { href: '/home', labelKey: 'home', icon: Home },
     { href: '/map', labelKey: 'map', icon: Map },
-    { href: '/book', labelKey: 'book', icon: CalendarPlus },
     { href: '/profile', labelKey: 'profile', icon: UserIcon },
   ],
   admin: [

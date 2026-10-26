@@ -48,7 +48,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Link href="/book">
+            <Link href="/map">
               <Button variant="gold" size="lg">
                 <CalendarPlus className="h-5 w-5" />
                 {t('bookNow')}
@@ -77,7 +77,7 @@ export default function HomePage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Link href="/map">
           <Card className="group flex h-full items-center gap-4 p-5 transition-colors hover:border-primary/40 hover:bg-accent">
             <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -86,18 +86,6 @@ export default function HomePage() {
             <div className="min-w-0 flex-1">
               <p className="font-medium">Interaktiv xarita</p>
               <p className="text-sm text-muted-foreground">Zal joylashuvini ko'ring</p>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-          </Card>
-        </Link>
-        <Link href="/book">
-          <Card className="group flex h-full items-center gap-4 p-5 transition-colors hover:border-primary/40 hover:bg-accent">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <CalendarPlus className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">Bron qilish</p>
-              <p className="text-sm text-muted-foreground">3 bosqichli tezkor bron</p>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
           </Card>
