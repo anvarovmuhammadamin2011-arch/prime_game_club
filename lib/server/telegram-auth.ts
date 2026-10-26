@@ -1,9 +1,10 @@
-import { readFile, appendFile, mkdir, rename, writeFile } from 'node:fs/promises'
+import { appendFile } from 'node:fs/promises'
 import path from 'node:path'
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { setDefaultResultOrder } from 'node:dns'
 import { setDefaultAutoSelectFamily } from 'node:net'
 import { maskPhone, normalizePhone, phoneKey } from '@/lib/phone'
+import { readJson, writeJson } from '@/lib/storage.mjs'
 
 // Telegram API'ga ulanishda IPv6 muammosi bo'lsa, IPv4 ni birinchi sinaymiz.
 setDefaultResultOrder('ipv4first')
@@ -21,7 +22,6 @@ export type BotUser = {
   registeredAt?: string
 }
 
-const USERS_FILE = path.join(process.cwd(), 'bot', 'data', 'users.json')
 const DEV_CODES_FILE = path.join(process.cwd(), 'bot', 'data', 'dev-codes.log')
 
 const CODE_TTL_MS = 5 * 60 * 1000
@@ -35,8 +35,8 @@ const LOGIN_WINDOW_MS = 10 * 60 * 1000
 
 export async function readBotUsers(): Promise<BotUser[]> {
   try {
-    const parsed = JSON.parse(await readFile(USERS_FILE, 'utf8'))
-    return Array.isArray(parsed) ? parsed : []
+    const parsed = await readJson('users.json', [])
+    return Array.isArray(parsed) ? (parsed as BotUser[]) : []
   } catch {
     return []
   }
@@ -48,14 +48,8 @@ export async function readBotUsers(): Promise<BotUser[]> {
  * tasodifan o'chirib yubormaslik uchun).
  */
 async function readBotUsersForWrite(): Promise<BotUser[]> {
-  try {
-    const raw = await readFile(USERS_FILE, 'utf8')
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw e
-  }
+  const parsed = await readJson('users.json', [])
+  return Array.isArray(parsed) ? (parsed as BotUser[]) : []
 }
 
 export async function findBotUserByPhone(phone: string): Promise<BotUser | null> {
@@ -117,10 +111,7 @@ export async function createBotUser(
 
     users.push(user)
 
-    await mkdir(path.dirname(USERS_FILE), { recursive: true })
-    const tmp = `${USERS_FILE}.tmp`
-    await writeFile(tmp, JSON.stringify(users, null, 2), 'utf8')
-    await rename(tmp, USERS_FILE)
+    await writeJson('users.json', users)
 
     return { ok: true, user }
   })
@@ -255,7 +246,9 @@ export function verifyCode(phone: string, input: string): VerifyResult {
 /** Telegram orqali kod yuborish. Dev rejimida faylga yozadi. */
 export async function sendCode(chatId: number, code: string): Promise<void> {
   if (process.env.AUTH_DEV_LOG_CODES === '1') {
-    await appendFile(DEV_CODES_FILE, `${new Date().toISOString()} chat=${chatId} code=${code}\n`)
+    await appendFile(DEV_CODES_FILE, `${new Date().toISOString()} chat=${chatId} code=${code}\n`).catch(
+      () => {},
+    )
     console.log(`[auth-dev] chat=${chatId} code=${code}`)
     return
   }

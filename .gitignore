@@ -16,3 +16,7 @@ node_modules
 bot/data/
 .vercel
 .env*
+
+# Lokal vositalar
+.opencode/
+graphify-out/
