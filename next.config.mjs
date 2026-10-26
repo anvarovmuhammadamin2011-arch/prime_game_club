@@ -11,6 +11,18 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Mini App Vercel'da, API va bronlar alohida serverda bo'lsa:
+  // Vercel'da API_PROXY_URL=https://api.example.uz qo'yiladi, /api/* o'sha yerga ketadi.
+  // O'zgaruvchi bo'lmasa — hech narsa o'zgarmaydi (lokal ish rejimi).
+  async rewrites() {
+    const api = process.env.API_PROXY_URL?.trim().replace(/\/+$/, '')
+    if (!api) return { beforeFiles: [], afterFiles: [], fallback: [] }
+    return {
+      beforeFiles: [{ source: '/api/:path*', destination: `${api}/api/:path*` }],
+      afterFiles: [],
+      fallback: [],
+    }
+  },
 }
 
 export default nextConfig
