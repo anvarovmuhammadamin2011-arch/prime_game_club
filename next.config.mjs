@@ -11,6 +11,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // API javoblari CDN'da eskirib qolmasin (bronlar darhol ko'rinsin).
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
+      },
+    ]
+  },
   // Mini App Vercel'da, API va bronlar alohida serverda bo'lsa:
   // Vercel'da API_PROXY_URL=https://api.example.uz qo'yiladi, /api/* o'sha yerga ketadi.
   // O'zgaruvchi bo'lmasa — hech narsa o'zgarmaydi (lokal ish rejimi).
