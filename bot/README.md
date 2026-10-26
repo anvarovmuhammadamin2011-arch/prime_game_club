@@ -1,5 +1,11 @@
 # Prime Game Club — Telegram bot
 
+> **Bot endi Vercel'da webhook sifatida ishlaydi** — PC yoki server kerak emas.
+> Kod: `app/api/telegram/route.ts`, manzil:
+> `https://prime-game-club-lemon.vercel.app/api/telegram`.
+> Lokal `pnpm bot` (long polling) faqat webhook o'chirilganda ishlatiladi —
+> aks holda Telegram 409 Conflict qaytaradi.
+
 Botning yagona vazifasi — foydalanuvchiga **Mini App**'ni ochish tugmasini
 berish. Bron qilish, ro'yxatdan o'tish, narxlar, bar menyusi va boshqa barcha
 amallar Mini App ichida bajariladi.
