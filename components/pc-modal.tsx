@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge, Button } from '@/components/ui/primitives'
 import { COMPUTER_TYPES, EXTRAS } from '@/lib/mock-data'
 import { STATUS_META } from '@/lib/status'
@@ -15,50 +15,55 @@ const HOURS = [1, 2, 3, 4, 6, 8]
 
 /**
  * Xaritada kompyuter tanlanganda ochiladigan oyna:
- * ma'lumot + shu yerning o'zida bron qilish.
+ * avval bron qilinadi, keyin qo'shimcha xizmatlar taklif qilinadi.
  */
 export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) {
-  const { currentUser, createBooking, toggleFavorite, t } = useApp()
+  const { currentUser, createBooking, refreshBookings, toggleFavorite, t } = useApp()
   const info = COMPUTER_TYPES[pc.type]
   const status = STATUS_META[pc.status]
   const available = pc.status === 'available'
 
+  const [step, setStep] = useState<'form' | 'extras' | 'done'>('form')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [time, setTime] = useState('18:00')
   const [hours, setHours] = useState(2)
   const [extras, setExtras] = useState<string[]>([])
+  const [code, setCode] = useState('')
+  const [bookingId, setBookingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [code, setCode] = useState<string | null>(null)
   const [left, setLeft] = useState(5)
 
-  const total = useMemo(
-    () =>
-      info.pricePerHour * hours +
-      extras.reduce((sum, id) => sum + (EXTRAS.find((e) => e.id === id)?.price ?? 0), 0),
-    [info.pricePerHour, hours, extras],
+  const baseTotal = info.pricePerHour * hours
+  const extrasTotal = extras.reduce(
+    (sum, id) => sum + (EXTRAS.find((e) => e.id === id)?.price ?? 0),
+    0,
   )
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (step === 'extras') setStep('done')
+      else onClose()
+    }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [onClose])
+  }, [step, onClose])
 
   // Bron kodi 5 soniya ko'rinib turadi, keyin oyna o'zi yopiladi.
   useEffect(() => {
-    if (!code) return
+    if (step !== 'done') return
     if (left <= 0) {
       onClose()
       return
     }
     const id = setTimeout(() => setLeft((n) => n - 1), 1000)
     return () => clearTimeout(id)
-  }, [code, left, onClose])
+  }, [step, left, onClose])
 
   const toggleExtra = (id: string) =>
     setExtras((s) => (s.includes(id) ? s.filter((e) => e !== id) : [...s, id]))
@@ -73,19 +78,44 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
       date,
       startTime: time,
       hours,
-      extras,
-      total,
+      extras: [],
+      total: baseTotal,
       paymentMethod: 'cash',
     })
     setSubmitting(false)
-    if (result.ok) setCode(result.code ?? '—')
-    else setError(result.error || "Bron qilishda xatolik")
+    if (!result.ok) {
+      setError(result.error || 'Bron qilishda xatolik')
+      return
+    }
+    setCode(result.code ?? '—')
+    setBookingId(result.id ?? null)
+    setStep('extras')
+  }
+
+  const saveExtras = async () => {
+    if (!bookingId || submitting) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extras }),
+      })
+      if (!res.ok) throw new Error('xatolik')
+      await refreshBookings().catch(() => {})
+      setStep('done')
+    } catch {
+      setError("Qo'shimcha xizmatlarni saqlashda xatolik")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={() => (step === 'extras' ? setStep('done') : onClose())}
       role="dialog"
       aria-modal="true"
       aria-label={pc.label}
@@ -94,7 +124,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
         className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {code ? (
+        {step === 'done' ? (
           <div className="py-2 text-center">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
               <Check className="h-7 w-7" />
@@ -113,6 +143,64 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
               Tushundim · {left}
             </Button>
           </div>
+        ) : step === 'extras' ? (
+          <>
+            <div className="text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
+                <Check className="h-6 w-6" />
+              </span>
+              <h3 className="mt-3 font-heading text-lg font-bold">Bron qabul qilindi</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Xohlasangiz qo‘shimcha xizmat qo‘shing — yoki o‘tkazib yuboring.
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {EXTRAS.map((ex) => {
+                const active = extras.includes(ex.id)
+                return (
+                  <button
+                    key={ex.id}
+                    onClick={() => toggleExtra(ex.id)}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      active ? 'border-primary bg-accent' : 'border-border hover:bg-secondary',
+                    )}
+                  >
+                    <span className="flex items-center gap-2.5 text-sm font-medium">
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 items-center justify-center rounded-md border',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border',
+                        )}
+                      >
+                        {active && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                      {ex.name}
+                    </span>
+                    <span className="text-mono-num text-sm">+{formatSom(ex.price)}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setStep('done')}>
+                O‘tkazib yuborish
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={saveExtras}
+                disabled={!extras.length || submitting}
+              >
+                {submitting ? 'Saqlanmoqda...' : `Qo‘shish · ${formatSom(extrasTotal)}`}
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             <div className="flex items-start justify-between gap-3">
@@ -189,29 +277,6 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                   ))}
                 </div>
 
-                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Qo&apos;shimcha
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {EXTRAS.map((ex) => {
-                    const active = extras.includes(ex.id)
-                    return (
-                      <button
-                        key={ex.id}
-                        onClick={() => toggleExtra(ex.id)}
-                        className={cn(
-                          'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
-                          active
-                            ? 'border-primary bg-accent text-foreground'
-                            : 'border-border text-muted-foreground hover:bg-secondary',
-                        )}
-                      >
-                        {ex.name} · +{formatSom(ex.price)}
-                      </button>
-                    )
-                  })}
-                </div>
-
                 {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
                 <div className="mt-4 flex items-center gap-2">
@@ -229,7 +294,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                     />
                   </Button>
                   <Button className="flex-1" onClick={confirm} disabled={submitting}>
-                    {submitting ? 'Yuborilmoqda...' : `Bron qilish · ${formatSom(total)}`}
+                    {submitting ? 'Yuborilmoqda...' : `Bron qilish · ${formatSom(baseTotal)}`}
                   </Button>
                 </div>
               </div>

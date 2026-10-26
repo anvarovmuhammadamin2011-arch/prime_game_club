@@ -66,6 +66,7 @@ interface AppContextValue extends AppState {
   createBooking: (data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>) => Promise<{
     ok: boolean
     code?: string
+    id?: string
     error?: string
   }>
   confirmBooking: (id: string) => Promise<void>
@@ -369,7 +370,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         })
         showNotification('Bron yaratildi, tasdiqlash kutilmoqda', 'success')
-        return { ok: true, code: booking.code }
+        return { ok: true, code: booking.code, id: booking.id }
       } catch {
         showNotification('Server bilan aloqa yo‘q. Internetni tekshiring.', 'error')
         return { ok: false, error: 'Server bilan aloqa yo‘q' }
