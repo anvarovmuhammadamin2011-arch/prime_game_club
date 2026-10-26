@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Inter, Orbitron, JetBrains_Mono } from 'next/font/google'
+import { Inter, JetBrains_Mono, Orbitron } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/context/app-context'
 import { TelegramWebApp } from '@/components/telegram-webapp'
