@@ -12,7 +12,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const ALLOWED_STATUSES = new Set<BookingStatus>(['confirmed', 'rejected', 'completed'])
-const ALLOWED_EXTRAS = new Set(['drink', 'snack', 'headset'])
+const ALLOWED_EXTRAS = new Set(['water', 'pepsi', 'redbull', 'sandwich'])
 
 export async function PATCH(
   request: Request,

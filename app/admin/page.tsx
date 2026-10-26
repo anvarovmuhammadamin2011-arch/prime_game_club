@@ -128,7 +128,8 @@ export default function AdminDashboard() {
                     <p className="text-xs text-muted-foreground">
                       <span className="text-mono-num text-primary">{b.code || '—'}</span>
                       {' · '}
-                      {b.computerLabel} · {b.startTime} · {b.hours}h
+                      {b.computerLabel} · {b.startTime} · {b.hours}
+                      {t('hoursShort')}
                     </p>
                   </div>
                   <span className="text-mono-num text-sm font-semibold">

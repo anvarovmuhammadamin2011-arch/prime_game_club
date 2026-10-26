@@ -9,11 +9,12 @@ import { Notifications } from '@/components/notifications'
 import { Button, Input } from '@/components/ui/primitives'
 import { Gamepad2, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 import type { Role } from '@/lib/types'
+import { getTelegramInitData } from '@/lib/telegram'
 
-const DEMO: { label: string; phone: string; password: string }[] = [
-  { label: 'Foydalanuvchi', phone: '+998901234567', password: 'user123' },
-  { label: 'Admin', phone: '+998930951996', password: 'primegameclub' },
-  { label: 'Super Admin', phone: '+998900000000', password: 'super123' },
+const DEMO: { labelKey: string; phone: string; password: string }[] = [
+  { labelKey: 'demoUser', phone: '+998901234567', password: 'user123' },
+  { labelKey: 'demoAdmin', phone: '+998930951996', password: 'primegameclub' },
+  { labelKey: 'demoSuper', phone: '+998900000000', password: 'super123' },
 ]
 
 const dest: Record<Role, string> = {
@@ -23,7 +24,8 @@ const dest: Record<Role, string> = {
 }
 
 export default function LoginPage() {
-  const { login, registerVerified, showNotification, currentUser, hydrated, t } = useApp()
+  const { login, registerVerified, showNotification, currentUser, hydrated, t, language } =
+    useApp()
   const router = useRouter()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -46,7 +48,12 @@ export default function LoginPage() {
         res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, pin: password }),
+          body: JSON.stringify({
+            phone,
+            pin: password,
+            lang: language,
+            initData: getTelegramInitData(),
+          }),
         })
         data = await res.json().catch(() => ({}))
       } catch {
@@ -55,7 +62,7 @@ export default function LoginPage() {
 
       // Botda ro'yxatdan o'tgan foydalanuvchi
       if (res?.ok && data.ok) {
-        if (registerVerified(data.user?.name || 'Mehmon', data.user?.phone || phone)) {
+        if (registerVerified(data.user?.name || t('guest'), data.user?.phone || phone)) {
           router.replace('/home')
           return
         }
@@ -69,24 +76,31 @@ export default function LoginPage() {
       }
 
       if (!res) {
-        showNotification('Server bilan aloqa yo‘q. Internetni tekshiring.', 'error')
+        showNotification(t('errServer'), 'error')
         return
       }
 
       if (res.status === 429) {
-        showNotification(
-          data.message || 'Juda ko‘p urinish. Keyinroq qayta urinib ko‘ring.',
-          'error',
-        )
+        showNotification(t('errTooMany'), 'error')
+        return
+      }
+
+      if (data.error === 'not_found') {
+        showNotification(t('errNotFound'), 'error')
+        return
+      }
+
+      if (data.error === 'pin_not_set') {
+        showNotification(t('errPinNotSet'), 'error')
         return
       }
 
       if (data.error === 'wrong_pin') {
-        showNotification('Telefon raqami yoki parol noto‘g‘ri', 'error')
+        showNotification(t('errInvalidCredentials'), 'error')
         return
       }
 
-      showNotification(data.message || 'Kirishda xatolik yuz berdi', 'error')
+      showNotification(data.message || t('errLoginFailed'), 'error')
     } finally {
       setLoading(false)
     }
@@ -103,10 +117,7 @@ export default function LoginPage() {
       return
     }
 
-    showNotification(
-      'Demo hisob topilmadi. Sahifani yangilab, qayta urinib ko‘ring.',
-      'error',
-    )
+    showNotification(t('demoNotFound'), 'error')
   }
 
   return (
@@ -124,10 +135,10 @@ export default function LoginPage() {
           </div>
 
           <h1 className="font-heading text-2xl font-bold tracking-tight">
-            Tizimga kirish
+            {t('loginTitle')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Hisobingizga kirib o'rningizni bron qiling
+            {t('loginSubtitle')}
           </p>
 
           <form onSubmit={submit} className="mt-8 space-y-4">
@@ -162,7 +173,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShow((s) => !s)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Toggle password"
+                  aria-label={t('togglePassword')}
                 >
                   {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -171,16 +182,16 @@ export default function LoginPage() {
 
             <Button type="submit" size="lg" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {loading ? 'Tekshirilmoqda...' : t('login')}
+              {loading ? t('checking') : t('login')}
             </Button>
           </form>
 
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            Botda yoki saytda ro‘yxatdan o‘tganlar telefon raqami va 4 xonali kod bilan kiradi.
+            {t('loginHint')}
           </p>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Hisobingiz yo'qmi?{' '}
+            {t('noAccount')}{' '}
             <Link href="/register" className="font-medium text-primary hover:underline">
               {t('register')}
             </Link>
@@ -189,9 +200,9 @@ export default function LoginPage() {
           <div className="mt-8 rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Demo hisoblar
+                {t('demoAccounts')}
               </p>
-              <span className="text-[11px] text-muted-foreground">Tezkor kirish</span>
+              <span className="text-[11px] text-muted-foreground">{t('quickLogin')}</span>
             </div>
             <div className="flex flex-col gap-2">
               {DEMO.map((d) => (
@@ -202,13 +213,13 @@ export default function LoginPage() {
                   className="group flex items-center justify-between gap-3 rounded-lg bg-secondary px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent"
                 >
                   <span className="min-w-0">
-                    <span className="block font-medium">{d.label}</span>
+                    <span className="block font-medium">{t(d.labelKey)}</span>
                     <span className="text-mono-num block text-xs text-muted-foreground">
                       {d.phone}
                     </span>
                   </span>
                   <span className="flex items-center gap-1 text-xs font-medium text-primary">
-                    Kirish
+                    {t('enter')}
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                   </span>
                 </button>

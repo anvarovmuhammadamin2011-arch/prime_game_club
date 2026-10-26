@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createBotUser, normalizePhone } from '@/lib/server/telegram-auth'
+import {
+  createBotUser,
+  normalizePhone,
+  verifyInitData,
+} from '@/lib/server/telegram-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,10 +23,14 @@ export async function POST(req: Request) {
     name: rawName,
     phone: rawPhone,
     pin: rawPin,
+    initData: rawInitData,
+    lang: rawLang,
   } = (body ?? {}) as {
     name?: string
     phone?: string
     pin?: string
+    initData?: string
+    lang?: string
   }
 
   const name = String(rawName ?? '')
@@ -47,12 +55,23 @@ export async function POST(req: Request) {
   const phone = normalizePhone(digits)
 
   const pin = String(rawPin ?? '').trim()
-  if (!/^\d{4}$/.test(pin)) {
-    return bad('Parol 4 xonali kod bo‘lishi kerak', 400, 'invalid_pin')
+  if (pin.length < 6 || pin.length > 64) {
+    return bad('Parol kamida 6 belgidan iborat bo‘lishi kerak', 400, 'invalid_pin')
   }
 
+  // Mini App ichida ro'yxatdan o'tilgan bo'lsa, chat darhol bog'lanadi va
+  // keyingi ochilishlarda avtomatik kirish ishlaydi.
+  const telegram = verifyInitData(String(rawInitData ?? ''))
+
   try {
-    const result = await createBotUser({ name, phone, pin })
+    const result = await createBotUser({
+      name,
+      phone,
+      pin,
+      chatId: telegram.ok ? telegram.user.id : 0,
+      username: telegram.ok ? (telegram.user.username ?? null) : null,
+      lang: rawLang ?? (telegram.ok ? telegram.user.language_code : null),
+    })
 
     if (!result.ok) {
       return bad(

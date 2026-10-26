@@ -1,6 +1,11 @@
 import { appendFile } from 'node:fs/promises'
 import path from 'node:path'
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import {
+  createHmac,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from 'node:crypto'
 import { setDefaultResultOrder } from 'node:dns'
 import { setDefaultAutoSelectFamily } from 'node:net'
 import { maskPhone, normalizePhone, phoneKey } from '@/lib/phone'
@@ -17,9 +22,70 @@ export type BotUser = {
   phone: string
   name: string
   username?: string | null
+  lang?: string | null
   pinHash?: string | null
   pinSalt?: string | null
   registeredAt?: string
+}
+
+export type TelegramInitUser = {
+  id: number
+  first_name?: string
+  last_name?: string
+  username?: string
+  language_code?: string
+}
+
+export type InitDataResult =
+  | { ok: true; user: TelegramInitUser }
+  | { ok: false; error: 'bad_request' | 'bad_hash' | 'expired' | 'bad_user' }
+
+/** Telegram Mini App initData'ni bot tokeni bilan tekshiradi. */
+export function verifyInitData(
+  initData: string,
+  token = process.env.TELEGRAM_BOT_TOKEN,
+): InitDataResult {
+  if (!token) return { ok: false, error: 'bad_request' }
+  if (!initData) return { ok: false, error: 'bad_request' }
+
+  const params = new URLSearchParams(initData)
+  const hash = params.get('hash') || ''
+  if (!hash) return { ok: false, error: 'bad_hash' }
+  params.delete('hash')
+
+  const dataCheckString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')
+
+  const secret = createHmac('sha256', 'WebAppData').update(token).digest()
+  const computed = createHmac('sha256', secret)
+    .update(dataCheckString)
+    .digest('hex')
+
+  const provided = Buffer.from(hash, 'hex')
+  const expected = Buffer.from(computed, 'hex')
+  if (
+    provided.length !== expected.length ||
+    !timingSafeEqual(provided, expected)
+  ) {
+    return { ok: false, error: 'bad_hash' }
+  }
+
+  const authDate = Number(params.get('auth_date') || 0)
+  if (!authDate || Date.now() / 1000 - authDate > 86_400) {
+    return { ok: false, error: 'expired' }
+  }
+
+  let user: TelegramInitUser | null = null
+  try {
+    user = JSON.parse(params.get('user') || 'null')
+  } catch {
+    user = null
+  }
+  if (!user?.id) return { ok: false, error: 'bad_user' }
+
+  return { ok: true, user }
 }
 
 const DEV_CODES_FILE = path.join(process.cwd(), 'bot', 'data', 'dev-codes.log')
@@ -80,6 +146,9 @@ export type CreateBotUserInput = {
   name: string
   phone: string
   pin: string
+  chatId?: number
+  username?: string | null
+  lang?: string | null
 }
 
 export type CreateBotUserResult =
@@ -101,10 +170,11 @@ export async function createBotUser(
     }
 
     const user: BotUser = {
-      chatId: 0,
+      chatId: input.chatId ?? 0,
       phone: normalizePhone(input.phone),
       name: input.name.trim().replace(/\s+/g, ' '),
-      username: null,
+      username: input.username ?? null,
+      lang: input.lang ?? null,
       ...hashPin(input.pin),
       registeredAt: new Date().toISOString(),
     }
@@ -114,6 +184,73 @@ export async function createBotUser(
     await writeJson('users.json', users)
 
     return { ok: true, user }
+  })
+}
+
+/**
+ * Mavjud hisobni Telegram chatiga bog'laydi. Keyingi ochilishlarda
+ * Mini App initData orqali avtomatik kiradi.
+ */
+export async function linkUserChat(
+  phone: string,
+  chatId: number,
+  username?: string | null,
+  lang?: string | null,
+): Promise<BotUser | null> {
+  if (!chatId) return null
+  return withUsersLock(async () => {
+    const users = await readBotUsersForWrite()
+    const index = users.findIndex((u) => phoneKey(u.phone) === phoneKey(phone))
+    if (index < 0) return null
+
+    const current = users[index]
+    const updated: BotUser = {
+      ...current,
+      chatId,
+      username: username ?? current.username ?? null,
+      lang: lang ?? current.lang ?? null,
+    }
+    if (
+      current.chatId === updated.chatId &&
+      current.username === updated.username &&
+      current.lang === updated.lang
+    ) {
+      return current
+    }
+
+    users[index] = updated
+    await writeJson('users.json', users)
+    return updated
+  })
+}
+
+export type SetBotPasswordResult =
+  | { ok: true; user: BotUser }
+  | { ok: false; error: 'not_found' | 'already_set' }
+
+/**
+ * Botda telefon raqamini ulashgan, lekin hali parol o'rnatmagan
+ * foydalanuvchi uchun parol o'rnatadi.
+ */
+export async function setBotUserPassword(
+  chatId: number,
+  pin: string,
+): Promise<SetBotPasswordResult> {
+  if (!chatId) return { ok: false, error: 'not_found' }
+  return withUsersLock(async () => {
+    const users = await readBotUsersForWrite()
+    const index = users.findIndex((u) => String(u.chatId) === String(chatId))
+    if (index < 0) return { ok: false, error: 'not_found' as const }
+
+    const current = users[index]
+    if (current.pinHash && current.pinSalt) {
+      return { ok: false, error: 'already_set' as const }
+    }
+
+    const updated: BotUser = { ...current, ...hashPin(pin) }
+    users[index] = updated
+    await writeJson('users.json', users)
+    return { ok: true, user: updated }
   })
 }
 

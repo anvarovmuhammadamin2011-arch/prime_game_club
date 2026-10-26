@@ -8,6 +8,7 @@
     "start": "next start",
     "bot": "node --env-file-if-exists=.env.local --env-file-if-exists=.env bot/index.mjs",
     "tunnel": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/tunnel.mjs",
+    "telegram:setup": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/telegram-setup.mjs",
     "lint": "eslint ."
   },
   "dependencies": {

@@ -56,7 +56,7 @@ interface AppState {
 }
 
 interface AppContextValue extends AppState {
-  t: (key: string) => string
+  t: (key: string, vars?: Record<string, string | number>) => string
   setLanguage: (l: Lang) => void
   toggleTheme: () => void
   login: (phone: string, password: string, silent?: boolean) => { success: boolean; role?: Role }
@@ -82,6 +82,7 @@ interface AppContextValue extends AppState {
   toggleFavorite: (id: string) => void
   updatePrice: (type: string, price: number) => void
   showNotification: (message: string, type?: Notification['type']) => void
+  dismissNotification: (id: string) => void
   pendingCount: number
 }
 
@@ -127,6 +128,23 @@ function syncUsers(stored: User[] | undefined): User[] {
   return merged
 }
 
+// Birinchi versiyadagi bar menyusi (chips, burger va h.k.) yangi
+// menyuga o'tkaziladi; keyin qo'shilgan mahsulotlar saqlanadi.
+const LEGACY_BAR_NAMES = new Set([
+  'Lays Chips',
+  'Snickers',
+  'Burger',
+  'Hot-Dog',
+  'Cheesecake',
+  'Espresso',
+])
+
+function syncBarProducts(stored: BarProduct[] | undefined): BarProduct[] {
+  if (!Array.isArray(stored)) return INITIAL_BAR_PRODUCTS
+  if (stored.some((p) => LEGACY_BAR_NAMES.has(p.name))) return INITIAL_BAR_PRODUCTS
+  return stored
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>({
     currentUser: null,
@@ -158,11 +176,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...parsed,
           computers: syncComputers(parsed.computers),
           users: syncUsers(parsed.users),
+          barProducts: syncBarProducts(parsed.barProducts),
           notifications: [],
           hydrated: true,
         }))
       } else {
-        setState((s) => ({ ...s, hydrated: true }))
+        const preferred: Lang = navigator.language
+          ?.toLowerCase()
+          .startsWith('ru')
+          ? 'ru'
+          : 'uz'
+        setState((s) => ({ ...s, language: preferred, hydrated: true }))
       }
     } catch {
       setState((s) => ({ ...s, hydrated: true }))
@@ -187,24 +211,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     else root.classList.remove('dark')
   }, [state.theme])
 
+  // tanlangan tilni hujjatga ham yozamiz (screen reader / brauzer uchun)
+  useEffect(() => {
+    document.documentElement.lang = state.language
+  }, [state.language])
+
   const showNotification = useCallback(
     (message: string, type: Notification['type'] = 'info') => {
       const id = uid('n')
       setState((s) => ({
         ...s,
-        notifications: [...s.notifications, { id, message, type }],
+        // Ko'p bron tasdiqlansa ham navbat bilan bittadan chiqadi.
+        notifications: [...s.notifications, { id, message, type }].slice(-30),
       }))
-      setTimeout(() => {
-        setState((s) => ({
-          ...s,
-          notifications: s.notifications.filter((n) => n.id !== id),
-        }))
-      }, 3500)
     },
     [],
   )
 
-  const t = useCallback((key: string) => translate(state.language, key), [state.language])
+  const dismissNotification = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      notifications: s.notifications.filter((n) => n.id !== id),
+    }))
+  }, [])
+
+  const t = useCallback(
+    (key: string, vars?: Record<string, string | number>) =>
+      translate(state.language, key, vars),
+    [state.language],
+  )
 
   const setLanguage = useCallback((l: Lang) => {
     setState((s) => ({ ...s, language: l }))
@@ -220,14 +255,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         (u) => u.phone === phone.trim() && u.password === password,
       )
       if (!user) {
-        if (!silent) showNotification("Telefon yoki parol noto'g'ri", 'error')
+        if (!silent) showNotification(t('nWrongLogin'), 'error')
         return { success: false }
       }
       setState((s) => ({ ...s, currentUser: user }))
-      showNotification(`Xush kelibsiz, ${user.name}`, 'success')
+      showNotification(t('nWelcome', { name: user.name }), 'success')
       return { success: true, role: user.role }
     },
-    [state.users, showNotification],
+    [state.users, showNotification, t],
   )
 
   const logout = useCallback(() => {
@@ -237,7 +272,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(
     (name: string, phone: string, password: string) => {
       if (state.users.some((u) => u.phone === phone.trim())) {
-        showNotification("Bu raqam allaqachon ro'yxatdan o'tgan", 'error')
+        showNotification(t('nPhoneExists'), 'error')
         return false
       }
       const newUser: User = {
@@ -253,10 +288,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hoursPlayed: 0,
       }
       setState((s) => ({ ...s, users: [...s.users, newUser], currentUser: newUser }))
-      showNotification("Ro'yxatdan o'tdingiz! 20,000 so'm sovg'a balans", 'success')
+      showNotification(t('nRegisteredBonus'), 'success')
       return true
     },
-    [state.users, showNotification],
+    [state.users, showNotification, t],
   )
 
   const registerVerified = useCallback(
@@ -266,11 +301,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (existing) {
         setState((s) => ({ ...s, currentUser: existing }))
-        showNotification(`Xush kelibsiz, ${existing.name}`, 'success')
+        showNotification(t('nWelcome', { name: existing.name }), 'success')
         return true
       }
 
-      const cleanName = name.trim() || 'Mehmon'
+      const cleanName = name.trim() || t('guest')
       const newUser: User = {
         id: uid('u'),
         name: cleanName,
@@ -284,10 +319,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hoursPlayed: 0,
       }
       setState((s) => ({ ...s, users: [...s.users, newUser], currentUser: newUser }))
-      showNotification("Ro'yxatdan o'tdingiz!", 'success')
+      showNotification(t('nRegistered'), 'success')
       return true
     },
-    [state.users, showNotification],
+    [state.users, showNotification, t],
   )
 
   const refreshBookings = useCallback(async () => {
@@ -318,9 +353,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>,
     ) => {
       const user = state.currentUser
-      if (!user) return { ok: false, error: 'Avval tizimga kiring' }
+      if (!user) return { ok: false, error: t('nLoginFirst') }
       if (data.paymentMethod !== 'cash') {
-        return { ok: false, error: "Faqat naqd to'lov mavjud" }
+        return { ok: false, error: t('nCashOnly') }
       }
 
       const computer = state.computers.find((c) => c.id === data.computerId)
@@ -348,7 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           | null
 
         if (!res.ok || !payload?.ok || !payload.booking) {
-          const message = payload?.message || 'Bron yaratilmadi. Qayta urinib ko‘ring.'
+          const message = payload?.message || t('nBookingFailed')
           showNotification(message, 'error')
           return { ok: false, error: message }
         }
@@ -369,14 +404,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ),
           }
         })
-        showNotification('Bron yaratildi, tasdiqlash kutilmoqda', 'success')
+        showNotification(t('nBookingCreated'), 'success')
         return { ok: true, code: booking.code, id: booking.id }
       } catch {
-        showNotification('Server bilan aloqa yo‘q. Internetni tekshiring.', 'error')
-        return { ok: false, error: 'Server bilan aloqa yo‘q' }
+        showNotification(t('nNoServer'), 'error')
+        return { ok: false, error: t('nNoServer') }
       }
     },
-    [state.currentUser, state.computers, showNotification],
+    [state.currentUser, state.computers, showNotification, t],
   )
 
   const confirmBooking = useCallback(
@@ -391,7 +426,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           | { ok?: boolean; message?: string }
           | null
         if (!res.ok || !payload?.ok) {
-          showNotification(payload?.message || 'Bronni tasdiqlashda xatolik', 'error')
+          showNotification(payload?.message || t('nConfirmError'), 'error')
           return
         }
         setState((s) => {
@@ -407,7 +442,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             auditLog: [
               {
                 id: uid('au'),
-                action: `Bron tasdiqlandi: ${id}`,
+                action: t('auditConfirmed', { id }),
                 by: s.currentUser?.name ?? 'system',
                 at: nowStamp(),
               },
@@ -415,12 +450,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ],
           }
         })
-        showNotification('Bron tasdiqlandi', 'success')
+        showNotification(t('nConfirmed'), 'success')
       } catch {
-        showNotification('Server bilan aloqa yo‘q', 'error')
+        showNotification(t('nNoServer'), 'error')
       }
     },
-    [showNotification],
+    [showNotification, t],
   )
 
   const rejectBooking = useCallback(
@@ -435,7 +470,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           | { ok?: boolean; message?: string }
           | null
         if (!res.ok || !payload?.ok) {
-          showNotification(payload?.message || 'Bronni rad etishda xatolik', 'error')
+          showNotification(payload?.message || t('nRejectError'), 'error')
           return
         }
         setState((s) => {
@@ -451,7 +486,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             auditLog: [
               {
                 id: uid('au'),
-                action: `Bron rad etildi: ${id}`,
+                action: t('auditRejected', { id }),
                 by: s.currentUser?.name ?? 'system',
                 at: nowStamp(),
               },
@@ -459,12 +494,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ],
           }
         })
-        showNotification('Bron rad etildi', 'warning')
+        showNotification(t('nRejected'), 'warning')
       } catch {
-        showNotification('Server bilan aloqa yo‘q', 'error')
+        showNotification(t('nNoServer'), 'error')
       }
     },
-    [showNotification],
+    [showNotification, t],
   )
 
   const setMaintenanceMode = useCallback((id: string, on: boolean) => {
@@ -474,8 +509,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         c.id === id ? { ...c, status: on ? 'maintenance' : 'available' } : c,
       ),
     }))
-    showNotification(on ? 'Texnik rejim yoqildi' : 'Texnik rejim o‘chirildi', 'info')
-  }, [showNotification])
+    showNotification(t(on ? 'nMaintenanceOn' : 'nMaintenanceOff'), 'info')
+  }, [showNotification, t])
 
   const sellBarProduct = useCallback((productId: string, qty: number) => {
     setState((s) => {
@@ -497,32 +532,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         barSales: [sale, ...s.barSales],
       }
     })
-    showNotification('Sotuv amalga oshirildi', 'success')
-  }, [showNotification])
+    showNotification(t('nSaleDone'), 'success')
+  }, [showNotification, t])
 
   const addBarProduct = useCallback((data: Omit<BarProduct, 'id'>) => {
     setState((s) => ({
       ...s,
       barProducts: [...s.barProducts, { ...data, id: uid('bp') }],
     }))
-    showNotification("Mahsulot qo'shildi", 'success')
-  }, [showNotification])
+    showNotification(t('nProductAdded'), 'success')
+  }, [showNotification, t])
 
   const addExpense = useCallback((data: Omit<Expense, 'id'>) => {
     setState((s) => ({
       ...s,
       expenses: [{ ...data, id: uid('e') }, ...s.expenses],
     }))
-    showNotification("Xarajat qo'shildi", 'success')
-  }, [showNotification])
+    showNotification(t('nExpenseAdded'), 'success')
+  }, [showNotification, t])
 
   const addPromoCode = useCallback((data: Omit<Promo, 'id' | 'uses' | 'active'>) => {
     setState((s) => ({
       ...s,
       promos: [{ ...data, id: uid('p'), uses: 0, active: true }, ...s.promos],
     }))
-    showNotification('Promo kod yaratildi', 'success')
-  }, [showNotification])
+    showNotification(t('nPromoCreated'), 'success')
+  }, [showNotification, t])
 
   const togglePromo = useCallback((id: string) => {
     setState((s) => ({
@@ -543,8 +578,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       )
       return { ...s, users, currentUser: users.find((u) => u.id === user.id) ?? user }
     })
-    showNotification('Bonus ballar balansga aylantirildi', 'success')
-  }, [showNotification])
+    showNotification(t('nBonusRedeemed'), 'success')
+  }, [showNotification, t])
 
   const toggleFavorite = useCallback((id: string) => {
     setState((s) => {
@@ -560,8 +595,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updatePrice = useCallback((_type: string, _price: number) => {
-    showNotification('Narx yangilandi', 'success')
-  }, [showNotification])
+    showNotification(t('nPriceUpdated'), 'success')
+  }, [showNotification, t])
 
   const pendingCount = useMemo(
     () => state.bookings.filter((b) => b.status === 'pending').length,
@@ -591,6 +626,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toggleFavorite,
     updatePrice,
     showNotification,
+    dismissNotification,
     pendingCount,
   }
 

@@ -14,7 +14,7 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const ALLOWED_EXTRAS = new Set(['drink', 'snack', 'headset'])
+const ALLOWED_EXTRAS = new Set(['water', 'pepsi', 'redbull', 'sandwich'])
 
 function text(value: unknown, max = 80) {
   return String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, max)
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
       extras,
       total: calcTotal(zone, hours, seats, extras),
       paymentMethod: 'cash',
+      lang: user?.lang || 'uz',
       status: 'pending',
     })
 

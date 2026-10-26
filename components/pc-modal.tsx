@@ -12,6 +12,12 @@ import type { Computer } from '@/lib/types'
 
 const TIMES = ['10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
 const HOURS = [1, 2, 3, 4, 6, 8]
+const EXTRA_NAME_KEYS: Record<string, string> = {
+  water: 'extraWater',
+  pepsi: 'extraPepsi',
+  redbull: 'extraRedBull',
+  sandwich: 'extraSandwich',
+}
 
 /**
  * Xaritada kompyuter tanlanganda ochiladigan oyna:
@@ -84,7 +90,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
     })
     setSubmitting(false)
     if (!result.ok) {
-      setError(result.error || 'Bron qilishda xatolik')
+      setError(result.error || t('bookingError'))
       return
     }
     setCode(result.code ?? '—')
@@ -106,7 +112,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
       await refreshBookings().catch(() => {})
       setStep('done')
     } catch {
-      setError("Qo'shimcha xizmatlarni saqlashda xatolik")
+      setError(t('extrasSaveError'))
     } finally {
       setSubmitting(false)
     }
@@ -129,18 +135,20 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
               <Check className="h-7 w-7" />
             </span>
-            <h3 className="mt-4 font-heading text-xl font-bold">Bron qabul qilindi!</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Kodni eslab qoling — «Profil» bo‘limida ham saqlanadi.
-            </p>
+            <h3 className="mt-4 font-heading text-xl font-bold">
+              {t('bookingAcceptedTitle')}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t('codeRemember')}</p>
             <div className="my-5 rounded-xl border border-dashed border-primary/40 bg-primary/10 px-4 py-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Bron kodi</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {t('bookingCode')}
+              </p>
               <p className="text-mono-num mt-1 text-4xl font-bold tracking-[0.3em] text-primary">
                 {code}
               </p>
             </div>
             <Button className="w-full" onClick={onClose}>
-              Tushundim · {left}
+              {t('gotIt', { n: left })}
             </Button>
           </div>
         ) : step === 'extras' ? (
@@ -149,14 +157,17 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
                 <Check className="h-6 w-6" />
               </span>
-              <h3 className="mt-3 font-heading text-lg font-bold">Bron qabul qilindi</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Xohlasangiz qo‘shimcha xizmat qo‘shing — yoki o‘tkazib yuboring.
-              </p>
+              <h3 className="mt-3 font-heading text-lg font-bold">
+                {t('bookingAcceptedTitle')}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t('extraOfferDesc')}</p>
             </div>
 
             <div className="mt-4 space-y-2">
-              {EXTRAS.map((ex) => {
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t('extraDrinks')}
+              </p>
+              {EXTRAS.filter((ex) => ex.category === 'drink').map((ex) => {
                 const active = extras.includes(ex.id)
                 return (
                   <button
@@ -178,7 +189,39 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                       >
                         {active && <Check className="h-3.5 w-3.5" />}
                       </span>
-                      {ex.name}
+                      {t(EXTRA_NAME_KEYS[ex.id] ?? ex.name)}
+                    </span>
+                    <span className="text-mono-num text-sm">+{formatSom(ex.price)}</span>
+                  </button>
+                )
+              })}
+
+              <p className="pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t('extraFood')}
+              </p>
+              {EXTRAS.filter((ex) => ex.category === 'food').map((ex) => {
+                const active = extras.includes(ex.id)
+                return (
+                  <button
+                    key={ex.id}
+                    onClick={() => toggleExtra(ex.id)}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      active ? 'border-primary bg-accent' : 'border-border hover:bg-secondary',
+                    )}
+                  >
+                    <span className="flex items-center gap-2.5 text-sm font-medium">
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 items-center justify-center rounded-md border',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border',
+                        )}
+                      >
+                        {active && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                      {t(EXTRA_NAME_KEYS[ex.id] ?? ex.name)}
                     </span>
                     <span className="text-mono-num text-sm">+{formatSom(ex.price)}</span>
                   </button>
@@ -190,14 +233,16 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
 
             <div className="mt-4 flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setStep('done')}>
-                O‘tkazib yuborish
+                {t('skip')}
               </Button>
               <Button
                 className="flex-1"
                 onClick={saveExtras}
                 disabled={!extras.length || submitting}
               >
-                {submitting ? 'Saqlanmoqda...' : `Qo‘shish · ${formatSom(extrasTotal)}`}
+                {submitting
+                  ? t('saving')
+                  : t('addExtras', { amount: formatSom(extrasTotal) })}
               </Button>
             </div>
           </>
@@ -214,24 +259,27 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
               <button
                 onClick={onClose}
                 className="-mr-1 -mt-1 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                aria-label="Yopish"
+                aria-label={t('close')}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="mt-4 flex items-center justify-between rounded-lg bg-secondary/60 px-3 py-2.5">
-              <span className="text-sm text-muted-foreground">Narx</span>
+              <span className="text-sm text-muted-foreground">{t('priceLabel')}</span>
               <span className="text-mono-num font-bold text-primary">
                 {formatSom(info.pricePerHour)}{' '}
-                <span className="text-xs font-normal text-muted-foreground">{t('som')}/soat</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {t('som')}
+                  {t('perHour')}
+                </span>
               </span>
             </div>
 
             {available ? (
               <div className="mt-4 border-t border-border pt-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Sana va vaqt
+                  {t('dateAndTime')}
                 </p>
                 <input
                   type="date"
@@ -258,7 +306,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                 </div>
 
                 <p className="mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Soat
+                  {t('hoursLabel')}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {HOURS.map((h) => (
@@ -284,7 +332,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                     variant="outline"
                     size="icon"
                     onClick={() => toggleFavorite(pc.id)}
-                    aria-label="Sevimli"
+                    aria-label={t('favorite')}
                   >
                     <Star
                       className={cn(
@@ -294,14 +342,17 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                     />
                   </Button>
                   <Button className="flex-1" onClick={confirm} disabled={submitting}>
-                    {submitting ? 'Yuborilmoqda...' : `Bron qilish · ${formatSom(baseTotal)}`}
+                    {submitting
+                      ? t('sending')
+                      : t('bookFor', { amount: formatSom(baseTotal) })}
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="mt-4 rounded-lg bg-secondary/60 px-3 py-3 text-sm text-muted-foreground">
-                Bu kompyuter hozir {t(status.labelKey).toLowerCase()}. Boshqa bo&apos;sh
-                kompyuterni tanlang.
+                {t('notAvailableNow', {
+                  status: t(status.labelKey).toLowerCase(),
+                })}
               </div>
             )}
           </>

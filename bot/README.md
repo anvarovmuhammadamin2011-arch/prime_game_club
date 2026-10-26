@@ -15,6 +15,15 @@ kutubxona kerak emas.
 
 ## Ishga tushirish
 
+Vercel webhook va Mini App menyu tugmasini bitta manzilga bog'lash:
+
+```bash
+pnpm telegram:setup https://prime-game-club-lemon.vercel.app
+```
+
+Buyruq `setWebhook`, `setChatMenuButton` va eski buyruqlarni tozalashni
+bajaradi. Tunnel bilan lokal ishlaganda buni `pnpm tunnel` o'zi qiladi.
+
 Doimiy ish uchun systemd servisi ishlatiladi (pastga qarang). Qo'lda test
 qilish uchun:
 
@@ -36,8 +45,10 @@ SITE_URL=https://...       # Mini App HTTPS manzili (tunnel yangilaydi)
 
 ## Foydalanuvchi uchun
 
-- Botga `/start` yoki istalgan xabar yozilganda bitta **Mini App'ni ochish**
-  tugmasi yuboriladi.
+- Botga `/start` yozilganda **telefon raqamni ulashish** tugmasi yuboriladi.
+- Raqam ulashilgach, bot **Mini App'ni ochish** tugmasini yuboradi.
+- Mini App birinchi ochilishda **parol o'rnatish** sahifasini ko'rsatadi.
+  Keyingi kirishlar telefon raqami va shu parol orqali bo'ladi.
 - Chatning pastki chap burchagidagi doimiy **Mini App** menyu tugmasi ham
   shu sahifani ochadi.
 - Boshqa buyruqlar, menyular va bron qilish flow'lari botdan olib tashlangan.
@@ -88,7 +99,7 @@ Node yangilansa, shu yo'lni yangilash kerak.
 ## Ma'lumotlar
 
 - Bronlar: `bot/data/bookings.json` (sayt API'lari va bot uchun umumiy, git'ga tushmaydi)
-- Foydalanuvchilar: `bot/data/users.json` (telefon + 4 xonali kod hash'i)
-- Ro'yxatdan o'tish: Mini App yoki sayt orqali (`/register`)
+- Foydalanuvchilar: `bot/data/users.json` (telefon + parol hash'i)
+- Ro'yxatdan o'tish: botda raqam ulashish yoki sayt orqali (`/register`)
 - Narxlar/menyu: `bot/club-data.mjs` (`lib/mock-data.ts` bilan bir xil)
 - Klub manzili/telefon: `.env.local` dagi `CLUB_*` o'zgaruvchilari

@@ -1,14 +1,17 @@
 'use client'
 
+import { useApp } from '@/context/app-context'
 import { Gamepad2, Zap, Shield, Trophy } from 'lucide-react'
 
-const features = [
-  { icon: Zap, title: 'RTX 4090 quvvati', desc: 'VIP zonalarda eng kuchli temir' },
-  { icon: Shield, title: 'Onlayn bron', desc: '3 bosqichli tezkor bron tizimi' },
-  { icon: Trophy, title: 'Sodiqlik dasturi', desc: 'Bonus ballar va referal mukofotlari' },
-]
-
 export function AuthBrand() {
+  const { t } = useApp()
+
+  const features = [
+    { icon: Zap, title: t('brandFeature1'), desc: t('brandFeature1Desc') },
+    { icon: Shield, title: t('brandFeature2'), desc: t('brandFeature2Desc') },
+    { icon: Trophy, title: t('brandFeature3'), desc: t('brandFeature3Desc') },
+  ]
+
   return (
     <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-foreground lg:flex">
       <div
@@ -31,11 +34,10 @@ export function AuthBrand() {
 
       <div className="relative space-y-6">
         <h2 className="font-heading text-4xl font-bold leading-tight text-balance">
-          O'zbekistondagi eng zamonaviy gaming klubi
+          {t('brandHeadline')}
         </h2>
         <p className="max-w-md text-primary-foreground/80 text-pretty">
-          20 ta premium ish stansiyasi va to'liq raqamli boshqaruv
-          tizimi. Bir necha soniyada o'rningizni bron qiling.
+          {t('brandDesc')}
         </p>
         <ul className="space-y-4">
           {features.map((f) => (
@@ -53,7 +55,7 @@ export function AuthBrand() {
       </div>
 
       <p className="relative text-sm text-primary-foreground/60">
-        © 2026 Prime Game Club. Barcha huquqlar himoyalangan.
+        © 2026 Prime Game Club. {t('rights')}
       </p>
     </div>
   )

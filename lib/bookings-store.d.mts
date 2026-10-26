@@ -19,6 +19,7 @@ export interface StoredBooking {
   extras: string[]
   total: number
   paymentMethod: string
+  lang?: string
   status: BookingStatus
   createdAt: string
 }
@@ -28,6 +29,7 @@ export interface BotUser {
   phone: string
   name: string
   username?: string | null
+  lang?: string | null
   pinHash?: string | null
   pinSalt?: string | null
   registeredAt?: string
@@ -48,6 +50,7 @@ export interface WebBooking {
   extras: string[]
   total: number
   paymentMethod: string
+  lang?: string
   status: BookingStatus
   createdAt: string
 }

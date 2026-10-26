@@ -7,8 +7,6 @@ import { STATUS_META } from '@/lib/status'
 import { useState } from 'react'
 import { Wrench, Thermometer, Clock } from 'lucide-react'
 
-const ZONES = ['VIP', 'Gaming Pro', 'Standard', 'Console']
-
 export default function ComputersPage() {
   const {
     t,
@@ -16,6 +14,7 @@ export default function ComputersPage() {
     setMaintenanceMode,
   } = useApp()
   const [zoneFilter, setZoneFilter] = useState<string>('all')
+  const zones = ['all', ...Array.from(new Set(computers.map((c) => c.zone)))]
 
   const filtered =
     zoneFilter === 'all'
@@ -31,7 +30,7 @@ export default function ComputersPage() {
 
       {/* Zone filter */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {['all', ...ZONES].map((z) => (
+        {zones.map((z) => (
           <button
             key={z}
             onClick={() => setZoneFilter(z)}
@@ -82,7 +81,9 @@ export default function ComputersPage() {
                   onClick={() => setMaintenanceMode(c.id, c.status !== 'maintenance')}
                 >
                   <Wrench className="h-4 w-4" />
-                  {c.status === 'maintenance' ? 'Texnik ko‘rikni tugatish' : 'Texnik ko‘rikka belgilash'}
+                  {c.status === 'maintenance'
+                    ? t('endMaintenance')
+                    : t('startMaintenance')}
                 </Button>
               </div>
             </Card>

@@ -69,7 +69,7 @@ export default function BookingsPage() {
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Kod, ism yoki telefon bo‘yicha qidirish..."
+        placeholder={t('searchBookings')}
         className="mb-4 h-10 w-full rounded-lg border border-input bg-background px-4 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
       />
 
@@ -85,13 +85,15 @@ export default function BookingsPage() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">{b.userName}</p>
                   <p className="text-mono-num mt-0.5 text-sm font-semibold text-primary">
-                    Kod: {b.code || '—'}
+                    {t('codeLabel')}: {b.code || '—'}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Monitor className="h-3.5 w-3.5" />
                       {b.computerLabel}
-                      {b.seats && b.seats > 1 ? ` · ${b.seats} o‘rin` : ''}
+                      {b.seats && b.seats > 1
+                        ? ` · ${t('seatsCount', { n: b.seats })}`
+                        : ''}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
@@ -108,7 +110,10 @@ export default function BookingsPage() {
 
               <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                 <div className="text-xs text-muted-foreground">
-                  {t('payment')}: <span className="uppercase">{b.paymentMethod}</span>
+                  {t('payment')}:{' '}
+                  <span className="uppercase">
+                    {b.paymentMethod === 'cash' ? t('cash') : b.paymentMethod}
+                  </span>
                 </div>
                 <span className="text-mono-num font-semibold">
                   {formatSom(b.total)}

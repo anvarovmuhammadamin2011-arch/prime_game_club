@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import {
   adminBookingText,
+  findUserByChatId,
   notifyUserBookingStatus,
   readBookings,
   updateBooking,
 } from '@/lib/bookings-store.mjs'
+import { upsertTelegramUser } from '@/lib/telegram-users.mjs'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,20 +14,89 @@ export const dynamic = 'force-dynamic'
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
 
-const WELCOME =
-  '🕹 <b>Prime Game Club</b>\n\n' +
-  'Bron qilish, bo‘sh o‘rinlar, bar menyusi — hammasi bitta Mini App ichida.\n\n' +
-  '👇 Mini App’ni ochish uchun pastdagi tugmani bosing.'
+const WELCOME = {
+  uz:
+    '🕹 <b>Prime Game Club</b>\n\n' +
+    'Bron qilish, bo‘sh o‘rinlar, bar menyusi — hammasi bitta Mini App ichida.\n\n' +
+    '👇 Mini App’ni ochish uchun pastdagi tugmani bosing.',
+  ru:
+    '🕹 <b>Prime Game Club</b>\n\n' +
+    'Бронирование, свободные места, меню бара — всё в одном Mini App.\n\n' +
+    '👇 Нажмите кнопку ниже, чтобы открыть Mini App.',
+}
+
+const PHONE_REQUEST = {
+  uz:
+    '📱 <b>Prime Game Club</b>\n\n' +
+    'Telefon raqamingizni ulashing — keyin Mini App’da parol o‘rnatasiz va shu raqam bilan kirasiz.',
+  ru:
+    '📱 <b>Prime Game Club</b>\n\n' +
+    'Поделитесь номером телефона — затем задайте пароль в Mini App и входите по этому номеру.',
+}
+
+const PHONE_SAVED = {
+  uz:
+    '✅ <b>Raqamingiz saqlandi!</b>\n\n' +
+    'Endi Mini App’ni ochib, kirish uchun parol o‘rnating.',
+  ru:
+    '✅ <b>Номер сохранён!</b>\n\n' +
+    'Откройте Mini App и задайте пароль для входа.',
+}
+
+const WELCOME_BACK = {
+  uz: '✅ <b>Raqamingiz saqlandi!</b>\n\n👇 Mini App’ni oching.',
+  ru: '✅ <b>Номер сохранён!</b>\n\n👇 Откройте Mini App.',
+}
+
+const phoneKeyboard = (lang: 'uz' | 'ru') => ({
+  keyboard: [
+    [
+      {
+        text: lang === 'ru' ? '📱 Поделиться номером' : '📱 Telefon raqamni ulashish',
+        request_contact: true,
+      },
+    ],
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: true,
+})
+
+const miniAppInline = (origin: string) => ({
+  inline_keyboard: [[{ text: '🚀 Mini App’ni ochish', web_app: { url: origin } }]],
+})
 
 type TgUpdate = {
   message?: {
     chat?: { id?: number; type?: string }
+    from?: {
+      id?: number
+      language_code?: string
+      first_name?: string
+      last_name?: string
+      username?: string
+    }
     text?: string
+    contact?: { phone_number?: string; user_id?: number }
   }
   callback_query?: {
     id: string
     data?: string
     message?: { chat?: { id?: number }; message_id?: number }
+  }
+}
+
+// Menyu tugmasi eski tunnel manziliga qotib qolmasin — har instansiyada
+// bir marta joriy (Vercel) manzilga o'rnatamiz.
+let menuFixed = false
+async function ensureMenuButton(url: string) {
+  if (menuFixed) return
+  menuFixed = true
+  try {
+    await api('setChatMenuButton', {
+      menu_button: { type: 'web_app', text: 'Mini App', web_app: { url } },
+    })
+  } catch (error) {
+    console.error('setChatMenuButton:', error)
   }
 }
 
@@ -58,20 +129,66 @@ export async function POST(request: Request) {
   if (!update) return NextResponse.json({ ok: true })
 
   const origin = new URL(request.url).origin
+  await ensureMenuButton(origin)
 
   try {
-    if (update.message?.chat?.type === 'private' && update.message.chat.id) {
-      await api('sendMessage', {
-        chat_id: update.message.chat.id,
-        text: WELCOME,
-        parse_mode: 'HTML',
-        link_preview_options: { is_disabled: true },
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🚀 Mini App’ni ochish', web_app: { url: origin } }],
-          ],
-        },
-      })
+    const message = update.message
+    const chat = message?.chat
+    if (message && chat?.type === 'private' && chat.id) {
+      const chatId = chat.id
+      const from = message.from
+      const lang: 'uz' | 'ru' = from?.language_code?.startsWith('ru') ? 'ru' : 'uz'
+      const contact = message.contact
+
+      // Telegram faqat foydalanuvchining o'z raqamini ulashishiga ruxsat beradi.
+      if (contact?.phone_number && (!contact.user_id || contact.user_id === from?.id)) {
+        const name = [from?.first_name, from?.last_name].filter(Boolean).join(' ')
+        const user = await upsertTelegramUser({
+          chatId,
+          phone: contact.phone_number,
+          name,
+          username: from?.username ?? null,
+          lang,
+        })
+
+        const needsPassword = !user?.pinHash || !user?.pinSalt
+        await api('sendMessage', {
+          chat_id: chatId,
+          text: needsPassword ? PHONE_SAVED[lang] : WELCOME_BACK[lang],
+          parse_mode: 'HTML',
+          link_preview_options: { is_disabled: true },
+          reply_markup: miniAppInline(origin),
+        })
+      } else {
+        const existing = await findUserByChatId(chatId)
+
+        // Yangi foydalanuvchi — avval telefon raqamini ulashadi.
+        if (!existing) {
+          await api('sendMessage', {
+            chat_id: chatId,
+            text: PHONE_REQUEST[lang],
+            parse_mode: 'HTML',
+            link_preview_options: { is_disabled: true },
+            reply_markup: phoneKeyboard(lang),
+          })
+        } else if (!existing.pinHash || !existing.pinSalt) {
+          await api('sendMessage', {
+            chat_id: chatId,
+            text: PHONE_SAVED[lang],
+            parse_mode: 'HTML',
+            link_preview_options: { is_disabled: true },
+            reply_markup: miniAppInline(origin),
+          })
+        } else {
+          await api('sendMessage', {
+            chat_id: chatId,
+            text: WELCOME[lang],
+            parse_mode: 'HTML',
+            link_preview_options: { is_disabled: true },
+            reply_markup: miniAppInline(origin),
+          })
+        }
+      }
     }
 
     const q = update.callback_query

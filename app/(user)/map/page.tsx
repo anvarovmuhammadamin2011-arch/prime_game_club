@@ -13,11 +13,11 @@ import { Cpu } from 'lucide-react'
 
 type Filter = 'all' | 'available' | ComputerType
 
-const ZONES: { type: ComputerType; name: string }[] = [
-  { type: 'VIP', name: 'VIP Zona' },
-  { type: 'GAMING_PRO', name: 'Gaming Pro Zona' },
-  { type: 'STANDARD', name: 'Standard Zona' },
-  { type: 'PS5', name: 'Console Zona' },
+const ZONES: { type: ComputerType; nameKey: string }[] = [
+  { type: 'VIP', nameKey: 'zoneVip' },
+  { type: 'GAMING_PRO', nameKey: 'zoneGamingPro' },
+  { type: 'STANDARD', nameKey: 'zoneStandard' },
+  { type: 'PS5', nameKey: 'zoneConsole' },
 ]
 
 const FILTER_LABELS: Record<ComputerType, string> = {
@@ -55,18 +55,18 @@ export default function MapPage() {
 
   const filters = useMemo<{ id: Filter; label: string }[]>(
     () => [
-      { id: 'all', label: 'Barchasi' },
-      { id: 'available', label: "Bo'sh" },
+      { id: 'all', label: t('all') },
+      { id: 'available', label: t('available') },
       ...zones.map((z) => ({ id: z.type, label: FILTER_LABELS[z.type] })),
     ],
-    [zones],
+    [zones, t],
   )
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Zal xaritasi"
-        subtitle="Kompyuterni tanlab tafsilotlarini ko'ring va bron qiling"
+        title={t('mapTitle')}
+        subtitle={t('mapSubtitle')}
       />
 
       {/* Legend */}
@@ -104,9 +104,10 @@ export default function MapPage() {
           return (
             <Card key={zone.type} className="p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-heading font-semibold">{zone.name}</h3>
+                <h3 className="font-heading font-semibold">{t(zone.nameKey)}</h3>
                 <span className="text-mono-num text-xs text-muted-foreground">
-                  {formatSom(COMPUTER_TYPES[zone.type].pricePerHour)} {t('som')}/soat
+                  {formatSom(COMPUTER_TYPES[zone.type].pricePerHour)} {t('som')}
+                  {t('perHour')}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-6">

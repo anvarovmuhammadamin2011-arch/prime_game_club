@@ -7,6 +7,11 @@ import { Users, Clock, Wallet, TrendingUp } from 'lucide-react'
 
 export default function StaffPage() {
   const { t, staff } = useApp()
+  const roleKey: Record<string, string> = {
+    Administrator: 'roleAdmin',
+    'Bar menejeri': 'roleBarManager',
+    Texnik: 'roleTechnician',
+  }
 
   const totalSalary = staff.reduce((s, x) => s + x.salary, 0)
   const totalRevenue = staff.reduce((s, x) => s + x.revenueGenerated, 0)
@@ -51,7 +56,7 @@ export default function StaffPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="truncate font-medium">{s.name}</p>
-                  <Badge tone="primary">{s.role}</Badge>
+                  <Badge tone="primary">{t(roleKey[s.role] ?? s.role)}</Badge>
                 </div>
               </div>
 

@@ -37,7 +37,7 @@ export default function SuperadminDashboard() {
         <StatCard
           label={t('monthlyRevenue')}
           value={formatSom(monthRevenue)}
-          hint="+12% vs oldingi oy"
+          hint={`+12% ${t('vsPrevMonth')}`}
           icon={<TrendingUp className="h-5 w-5" />}
           tone="success"
         />
@@ -50,7 +50,7 @@ export default function SuperadminDashboard() {
         <StatCard
           label={t('netProfit')}
           value={formatSom(profit)}
-          hint={`${margin}% margin`}
+          hint={t('marginLabel', { n: margin })}
           icon={<Wallet className="h-5 w-5" />}
           tone="gold"
         />
@@ -67,8 +67,11 @@ export default function SuperadminDashboard() {
           <BarChart
             title={t('revenueVsExpense')}
             unit="M"
-            data={MONTHLY_REVENUE.map((m) => ({
-              label: m.month,
+            data={MONTHLY_REVENUE.map((m, i) => ({
+              label: t(
+                ['monthJan', 'monthFeb', 'monthMar', 'monthApr', 'monthMay', 'monthJun'][i] ??
+                  m.month,
+              ),
               value: m.revenue,
               secondary: m.expense,
             }))}

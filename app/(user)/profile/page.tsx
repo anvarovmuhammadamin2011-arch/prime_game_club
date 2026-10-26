@@ -16,10 +16,10 @@ import {
 } from 'lucide-react'
 
 const ACHIEVEMENTS = [
-  { icon: Zap, title: 'Birinchi bron', desc: 'Ilk bron qildingiz', earned: true },
-  { icon: Flame, title: '100 soat', desc: '100 soat o\'ynadingiz', earned: true },
-  { icon: Crown, title: 'VIP mijoz', desc: 'VIP zonada o\'ynadingiz', earned: true },
-  { icon: Trophy, title: 'Marafon', desc: '12 soatlik sessiya', earned: false },
+  { icon: Zap, titleKey: 'ach1Title', descKey: 'ach1Desc', earned: true },
+  { icon: Flame, titleKey: 'ach2Title', descKey: 'ach2Desc', earned: true },
+  { icon: Crown, titleKey: 'ach3Title', descKey: 'ach3Desc', earned: true },
+  { icon: Trophy, titleKey: 'ach4Title', descKey: 'ach4Desc', earned: false },
 ]
 
 export default function ProfilePage() {
@@ -33,12 +33,12 @@ export default function ProfilePage() {
 
   const copyReferral = () => {
     navigator.clipboard?.writeText(currentUser.referralCode)
-    showNotification('Referal kod nusxalandi', 'success')
+    showNotification(t('copied'), 'success')
   }
 
   return (
     <div className="space-y-8">
-      <PageHeader title={t('profile')} subtitle="Hisob ma'lumotlari va yutuqlar" />
+      <PageHeader title={t('profile')} subtitle={t('profileSubtitle')} />
 
       {/* Profile header */}
       <Card className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
@@ -51,11 +51,11 @@ export default function ProfilePage() {
             {currentUser.phone}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            A'zo bo'lgan: {currentUser.joinedAt}
+            {t('memberSince', { date: currentUser.joinedAt })}
           </p>
         </div>
         <Badge tone="gold" className="self-start sm:self-center">
-          <Crown className="h-3.5 w-3.5" /> Premium
+          <Crown className="h-3.5 w-3.5" /> {t('premium')}
         </Badge>
       </Card>
 
@@ -64,14 +64,14 @@ export default function ProfilePage() {
         <StatCard
           label={t('bonusPoints')}
           value={`${currentUser.bonusPoints}`}
-          hint="ball"
+          hint={t('bonusPoints')}
           icon={<Star className="h-5 w-5" />}
           tone="gold"
         />
         <StatCard
-          label="O'ynalgan"
+          label={t('played')}
           value={`${currentUser.hoursPlayed}`}
-          hint="soat"
+          hint={t('hour')}
           icon={<Clock className="h-5 w-5" />}
           tone="info"
         />
@@ -85,15 +85,13 @@ export default function ProfilePage() {
               <Gift className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="font-heading font-semibold">Sodiqlik dasturi</h3>
-              <p className="text-sm text-muted-foreground">
-                Har 100 ball = 15,000 so'm
-              </p>
+              <h3 className="font-heading font-semibold">{t('loyaltyTitle')}</h3>
+              <p className="text-sm text-muted-foreground">{t('loyaltyRate')}</p>
             </div>
           </div>
           <div className="mt-5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Keyingi mukofotgacha</span>
+              <span className="text-muted-foreground">{t('nextReward')}</span>
               <span className="text-mono-num font-medium">
                 {currentUser.bonusPoints % 100}/100
               </span>
@@ -112,16 +110,18 @@ export default function ProfilePage() {
             onClick={redeemBonusPoints}
           >
             {canRedeem
-              ? `${Math.floor(currentUser.bonusPoints / 100) * 15000} so'm olish`
-              : 'Yetarli ball yo\'q'}
+              ? t('redeem', {
+                  amount: formatSom(Math.floor(currentUser.bonusPoints / 100) * 15000),
+                })
+              : t('notEnoughPoints')}
           </Button>
         </Card>
 
         {/* Referral */}
         <Card className="p-6">
-          <h3 className="font-heading font-semibold">Do'stni taklif qiling</h3>
+          <h3 className="font-heading font-semibold">{t('referralTitle')}</h3>
           <p className="mt-1 text-sm text-muted-foreground text-pretty">
-            Har bir do'st uchun ikkalangiz ham 20,000 so'm + 100 ball olasiz.
+            {t('referralDesc')}
           </p>
           <div className="mt-5 flex items-center gap-2">
             <div className="flex h-11 flex-1 items-center rounded-lg border border-dashed border-border bg-secondary px-4">
@@ -129,7 +129,7 @@ export default function ProfilePage() {
                 {currentUser.referralCode}
               </span>
             </div>
-            <Button variant="outline" size="icon" onClick={copyReferral} aria-label="Nusxalash">
+            <Button variant="outline" size="icon" onClick={copyReferral} aria-label={t('copy')}>
               <Copy className="h-4 w-4" />
             </Button>
           </div>
@@ -138,13 +138,13 @@ export default function ProfilePage() {
 
       {/* Achievements */}
       <div>
-        <PageHeader title="Yutuqlar" subtitle="To'plangan nishonlar" />
+        <PageHeader title={t('achievements')} subtitle={t('achievementsSubtitle')} />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {ACHIEVEMENTS.map((a) => {
             const Icon = a.icon
             return (
               <Card
-                key={a.title}
+                key={a.titleKey}
                 className={`flex flex-col items-center p-5 text-center ${a.earned ? '' : 'opacity-50'}`}
               >
                 <span
@@ -152,8 +152,8 @@ export default function ProfilePage() {
                 >
                   <Icon className="h-6 w-6" />
                 </span>
-                <p className="mt-3 text-sm font-medium">{a.title}</p>
-                <p className="text-xs text-muted-foreground">{a.desc}</p>
+                <p className="mt-3 text-sm font-medium">{t(a.titleKey)}</p>
+                <p className="text-xs text-muted-foreground">{t(a.descKey)}</p>
               </Card>
             )
           })}
@@ -162,10 +162,10 @@ export default function ProfilePage() {
 
       {/* History */}
       <div>
-        <PageHeader title="Bron tarixi" subtitle="Barcha bronlaringiz" />
+        <PageHeader title={t('bookingHistory')} subtitle={t('allBookings')} />
         {history.length === 0 ? (
           <Card className="p-6 text-center text-sm text-muted-foreground">
-            Hali bron qilmadingiz.
+            {t('noBookingsYet')}
           </Card>
         ) : (
           <Card className="divide-y divide-border">
@@ -174,8 +174,12 @@ export default function ProfilePage() {
                 <div>
                   <p className="text-mono-num font-medium">{b.computerLabel}</p>
                   <p className="text-xs text-muted-foreground">
-                    {b.code ? `Kod: ${b.code} · ` : ''}
-                    {b.date} · {b.startTime} · {b.hours} soat
+                    {b.code ? `${t('codeLabel')}: ${b.code} · ` : ''}
+                    {t('bookingMeta', {
+                      date: b.date,
+                      time: b.startTime,
+                      hours: b.hours,
+                    })}
                   </p>
                 </div>
                 <div className="text-right">
@@ -195,12 +199,12 @@ export default function ProfilePage() {
                     className="mt-1"
                   >
                     {b.status === 'confirmed'
-                      ? 'Tasdiqlangan'
+                      ? t('confirmed')
                       : b.status === 'pending'
                         ? t('pending')
                         : b.status === 'rejected'
-                          ? 'Rad etilgan'
-                          : 'Yakunlangan'}
+                          ? t('rejected')
+                          : t('completed')}
                   </Badge>
                 </div>
               </div>

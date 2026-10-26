@@ -1,18 +1,18 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { useApp } from '@/context/app-context'
-
-type TelegramWebApp = {
-  initData?: string
-}
+import { getTelegramInitData } from '@/lib/telegram'
 
 /**
  * Telegram Mini App ichida ochilganda initData orqali avtomatik kiradi.
  * Oddiy brauzerda hech narsa qilmaydi.
  */
 export function TelegramAutoLogin() {
-  const { registerVerified, currentUser, hydrated } = useApp()
+  const { registerVerified, currentUser, hydrated, setLanguage } = useApp()
+  const router = useRouter()
+  const pathname = usePathname()
   const started = useRef(false)
   const latest = useRef({ registerVerified })
   latest.current.registerVerified = registerVerified
@@ -27,12 +27,9 @@ export function TelegramAutoLogin() {
     const timer = setInterval(async () => {
       attempts += 1
 
-      const tg = (
-        window as unknown as { Telegram?: { WebApp?: TelegramWebApp } }
-      ).Telegram?.WebApp
-
-      if (!tg?.initData) {
-        if (attempts >= 30) clearInterval(timer)
+      const initData = getTelegramInitData()
+      if (!initData) {
+        if (attempts >= 100) clearInterval(timer)
         return
       }
 
@@ -42,15 +39,27 @@ export function TelegramAutoLogin() {
         const res = await fetch('/api/auth/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: tg.initData }),
+          body: JSON.stringify({ initData }),
         })
         const data = (await res.json().catch(() => null)) as
-          | { ok?: boolean; user?: { name?: string; phone?: string } }
+          | {
+              ok?: boolean
+              needs_password?: boolean
+              user?: { name?: string; phone?: string }
+              lang?: string | null
+            }
           | null
 
         if (!cancelled && res.ok && data?.ok && data.user?.phone) {
+          if (data.lang === 'ru' || data.lang === 'en' || data.lang === 'uz') {
+            setLanguage(data.lang)
+          }
+          if (data.needs_password) {
+            if (pathname !== '/set-password') router.replace('/set-password')
+            return
+          }
           latest.current.registerVerified(
-            data.user.name || 'Mehmon',
+            data.user.name || '',
             data.user.phone,
           )
         }
@@ -63,7 +72,7 @@ export function TelegramAutoLogin() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [hydrated, currentUser])
+  }, [hydrated, currentUser, setLanguage, pathname, router])
 
   return null
 }

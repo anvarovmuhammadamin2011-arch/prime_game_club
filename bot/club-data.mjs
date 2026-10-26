@@ -46,32 +46,27 @@ export const ZONES = [
 ]
 
 export const EXTRAS = [
-  { id: 'drink', name: 'Ichimlik', price: 8000 },
-  { id: 'snack', name: 'Snack', price: 12000 },
-  { id: 'headset', name: 'Premium naushnik', price: 5000 },
+  { id: 'water', name: 'Suv 0.5L', price: 5000 },
+  { id: 'pepsi', name: 'Pepsi 0.5L', price: 8000 },
+  { id: 'redbull', name: 'Red Bull', price: 15000 },
+  { id: 'sandwich', name: 'Sendvich', price: 15000 },
 ]
 
 export const BAR_MENU = [
+  { name: 'Suv 0.5L', category: 'drink', price: 5000 },
   { name: 'Pepsi 0.5L', category: 'drink', price: 8000 },
   { name: 'Red Bull', category: 'drink', price: 15000 },
-  { name: 'Espresso', category: 'drink', price: 14000 },
-  { name: 'Lays Chips', category: 'snack', price: 12000 },
-  { name: 'Snickers', category: 'snack', price: 9000 },
-  { name: 'Burger', category: 'hotfood', price: 32000 },
-  { name: 'Hot-Dog', category: 'hotfood', price: 22000 },
-  { name: 'Cheesecake', category: 'dessert', price: 25000 },
+  { name: 'Sendvich', category: 'snack', price: 15000 },
 ]
 
 export const BAR_CATEGORIES = {
   drink: '🥤 Ichimliklar',
-  snack: '🍿 Snacklar',
-  hotfood: '🍔 Issiq taomlar',
-  dessert: '🍰 Shirinliklar',
+  snack: '🥪 Sendvich',
 }
 
 export const COMBOS = [
-  { name: 'Gamer Combo', items: ['Burger', 'Pepsi 0.5L', 'Lays Chips'], price: 45000 },
-  { name: 'Energy Pack', items: ['Red Bull', 'Snickers'], price: 21000 },
+  { name: 'Sendvich Combo', items: ['Sendvich', 'Pepsi 0.5L'], price: 20000 },
+  { name: 'Energy Pack', items: ['Red Bull'], price: 15000 },
 ]
 
 export const PROMOS = [

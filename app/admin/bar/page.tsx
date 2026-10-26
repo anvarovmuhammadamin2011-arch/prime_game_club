@@ -26,8 +26,6 @@ const CATEGORIES = [
   { id: 'all', labelKey: 'all' },
   { id: 'drink', labelKey: 'drinks' },
   { id: 'snack', labelKey: 'snacks' },
-  { id: 'hotfood', labelKey: 'hotFood' },
-  { id: 'dessert', labelKey: 'desserts' },
 ]
 
 export default function BarPage() {
@@ -134,8 +132,6 @@ export default function BarPage() {
             >
               <option value="drink">{t('drinks')}</option>
               <option value="snack">{t('snacks')}</option>
-              <option value="hotfood">{t('hotFood')}</option>
-              <option value="dessert">{t('desserts')}</option>
             </select>
             <Input
               type="number"
@@ -245,7 +241,7 @@ export default function BarPage() {
                         <button
                           onClick={() => updateCart(id, -q)}
                           className="text-muted-foreground hover:text-destructive"
-                          aria-label="Remove"
+                          aria-label={t('remove')}
                         >
                           <X className="h-4 w-4" />
                         </button>

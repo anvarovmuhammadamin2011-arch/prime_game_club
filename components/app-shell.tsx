@@ -151,7 +151,7 @@ export function AppShell({
             <button
               onClick={cycleLang}
               className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-              aria-label="Language"
+              aria-label={t('language')}
             >
               <Languages className="h-4 w-4" />
               <span className="uppercase">{language}</span>
@@ -159,7 +159,7 @@ export function AppShell({
             <button
               onClick={toggleTheme}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-              aria-label="Theme"
+              aria-label={t('theme')}
             >
               {theme === 'dark' ? (
                 <Sun className="h-4 w-4" />
@@ -173,7 +173,7 @@ export function AppShell({
                 router.replace('/')
               }}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-              aria-label="Logout"
+              aria-label={t('logout')}
             >
               <LogOut className="h-4 w-4" />
             </button>

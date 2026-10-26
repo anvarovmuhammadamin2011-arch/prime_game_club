@@ -9,16 +9,17 @@ import { Notifications } from '@/components/notifications'
 import { Button, Input } from '@/components/ui/primitives'
 import { BOT_URL, BOT_USERNAME } from '@/lib/bot-link'
 import { phoneKey } from '@/lib/phone'
+import { getTelegramInitData } from '@/lib/telegram'
 import { Gamepad2, Loader2, ShieldCheck, Smartphone, UserPlus } from 'lucide-react'
 
 export default function RegisterPage() {
-  const { registerVerified, users, currentUser, hydrated, t } = useApp()
+  const { registerVerified, users, currentUser, hydrated, t, language } = useApp()
   const router = useRouter()
 
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [pin, setPin] = useState('')
-  const [pinConfirm, setPinConfirm] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
   const [error, setError] = useState('')
   const [alreadyExists, setAlreadyExists] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -36,23 +37,23 @@ export default function RegisterPage() {
     const digits = phone.replace(/\D/g, '')
 
     if (cleanName.length < 2) {
-      setError('Ismingizni to‘liq kiriting.')
+      setError(t('errName'))
       return
     }
     if (!/^\d{9}$/.test(digits) && !/^998\d{9}$/.test(digits)) {
-      setError('Telefon raqamini to‘g‘ri kiriting. Masalan: +998 90 123 45 67')
+      setError(t('errPhone'))
       return
     }
-    if (!/^\d{4}$/.test(pin)) {
-      setError('4 xonali kod kiriting.')
+    if (password.length < 6) {
+      setError(t('errPin'))
       return
     }
-    if (pin !== pinConfirm) {
-      setError('Kodlar mos kelmadi. Qayta tekshirib ko‘ring.')
+    if (password !== passwordConfirm) {
+      setError(t('errPinMismatch'))
       return
     }
     if (users.some((u) => phoneKey(u.phone) === phoneKey(phone))) {
-      setError('Bu telefon raqami allaqachon ro‘yxatdan o‘tgan.')
+      setError(t('errPhoneExists'))
       setAlreadyExists(true)
       return
     }
@@ -63,12 +64,28 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: cleanName, phone, pin }),
+        body: JSON.stringify({
+          name: cleanName,
+          phone,
+          pin: password,
+          lang: language,
+          initData: getTelegramInitData(),
+        }),
       })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok || !data.ok) {
-        setError(data.message || 'Ro‘yxatdan o‘tishda xatolik yuz berdi. Qayta urinib ko‘ring.')
+        setError(
+          data.error === 'already_exists'
+            ? t('errPhoneExists')
+            : data.error === 'invalid_phone'
+              ? t('errPhone')
+              : data.error === 'invalid_name'
+                ? t('errName')
+                : data.error === 'invalid_pin'
+                  ? t('errPin')
+                  : t('errRegister'),
+        )
         setAlreadyExists(data.error === 'already_exists')
         return
       }
@@ -77,7 +94,7 @@ export default function RegisterPage() {
         router.replace('/home')
       }
     } catch {
-      setError('Server bilan aloqa yo‘q. Internetni tekshiring.')
+      setError(t('errServer'))
     } finally {
       setLoading(false)
     }
@@ -99,13 +116,13 @@ export default function RegisterPage() {
 
           <h1 className="font-heading text-2xl font-bold tracking-tight">{t('register')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Hisob yarating — ism, telefon raqami va 4 xonali kod kiriting.
+            {t('registerSubtitle')}
           </p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="name">
-                Ism va familiya
+                {t('fullName')}
               </label>
               <Input
                 id="name"
@@ -135,46 +152,40 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="pin">
-                  4 xonali kod
+                <label className="text-sm font-medium" htmlFor="password">
+                  {t('pinLabel')}
                 </label>
                 <Input
-                  id="pin"
+                  id="password"
                   type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="••••"
-                  inputMode="numeric"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••"
                   autoComplete="new-password"
-                  maxLength={4}
-                  className="text-center text-lg tracking-[0.4em]"
+                  minLength={6}
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="pin-confirm">
-                  Kodni takrorlang
+                <label className="text-sm font-medium" htmlFor="password-confirm">
+                  {t('pinConfirm')}
                 </label>
                 <Input
-                  id="pin-confirm"
+                  id="password-confirm"
                   type="password"
-                  value={pinConfirm}
-                  onChange={(e) =>
-                    setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))
-                  }
-                  placeholder="••••"
-                  inputMode="numeric"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  placeholder="••••••"
                   autoComplete="new-password"
-                  maxLength={4}
-                  className="text-center text-lg tracking-[0.4em]"
+                  minLength={6}
                   required
                 />
               </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Bu 4 xonali kod saytga kirishda parolingiz bo‘ladi. Uni eslab qoling.
+              {t('pinHint')}
             </p>
 
             {error && (
@@ -182,7 +193,7 @@ export default function RegisterPage() {
                 {error}
                 {alreadyExists && (
                   <Link href="/" className="mt-1 block font-medium underline">
-                    Kirish sahifasiga o‘tish →
+                    {t('goToLogin')}
                   </Link>
                 )}
               </div>
@@ -194,31 +205,28 @@ export default function RegisterPage() {
               ) : (
                 <UserPlus className="h-4 w-4" />
               )}
-              {loading ? 'Yaratilmoqda...' : "Ro‘yxatdan o‘tish"}
+              {loading ? t('creating') : t('register')}
             </Button>
           </form>
 
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/10 p-3">
             <Smartphone className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
             <div className="text-sm">
-              <p className="font-medium">Mini App orqali ham ro‘yxatdan o‘tish mumkin</p>
-              <p className="mt-1 text-muted-foreground">
-                Botga o‘tib Mini App’ni oching va shu yerda telefon raqamingiz
-                hamda 4 xonali kodni kiriting.
-              </p>
+              <p className="font-medium">{t('miniAppTitle')}</p>
+              <p className="mt-1 text-muted-foreground">{t('miniAppDesc')}</p>
               <a
                 href={BOT_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
               >
-                @{BOT_USERNAME} ga o‘tish →
+                @{BOT_USERNAME} {t('goToBot')}
               </a>
             </div>
           </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Hisobingiz bormi?{' '}
+            {t('haveAccount')}{' '}
             <Link href="/" className="font-medium text-primary hover:underline">
               {t('login')}
             </Link>
@@ -226,7 +234,7 @@ export default function RegisterPage() {
 
           <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Ma’lumotlaringiz xavfsiz saqlanadi
+            {t('secureData')}
           </div>
         </div>
       </div>

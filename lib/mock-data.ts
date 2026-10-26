@@ -140,8 +140,8 @@ export const INITIAL_BOOKINGS: Booking[] = [
     date: '2026-06-25',
     startTime: '18:00',
     hours: 3,
-    extras: ['drink', 'headset'],
-    total: 88000,
+    extras: ['water', 'sandwich'],
+    total: 95000,
     paymentMethod: 'cash',
     status: 'confirmed',
     createdAt: '2026-06-23',
@@ -151,12 +151,12 @@ export const INITIAL_BOOKINGS: Booking[] = [
     userId: 'u2',
     userName: 'Malika Yusupova',
     computerId: 'pc-4',
-    computerLabel: 'GAMING-01',
+    computerLabel: 'VIP-04',
     date: '2026-06-25',
     startTime: '20:00',
     hours: 2,
     extras: [],
-    total: 36000,
+    total: 50000,
     paymentMethod: 'cash',
     status: 'pending',
     createdAt: '2026-06-24',
@@ -166,12 +166,12 @@ export const INITIAL_BOOKINGS: Booking[] = [
     userId: 'u1',
     userName: 'Abdulloh Karimov',
     computerId: 'pc-12',
-    computerLabel: 'STANDARD-01',
+    computerLabel: 'VIP-12',
     date: '2026-06-26',
     startTime: '14:00',
     hours: 4,
-    extras: ['snack'],
-    total: 52000,
+    extras: ['sandwich'],
+    total: 115000,
     paymentMethod: 'cash',
     status: 'pending',
     createdAt: '2026-06-24',
@@ -179,25 +179,21 @@ export const INITIAL_BOOKINGS: Booking[] = [
 ]
 
 export const INITIAL_BAR_PRODUCTS: BarProduct[] = [
-  { id: 'bp1', name: 'Pepsi 0.5L', category: 'drink', price: 8000, stock: 48 },
-  { id: 'bp2', name: 'Red Bull', category: 'drink', price: 15000, stock: 30 },
-  { id: 'bp3', name: 'Lays Chips', category: 'snack', price: 12000, stock: 25 },
-  { id: 'bp4', name: 'Snickers', category: 'snack', price: 9000, stock: 40 },
-  { id: 'bp5', name: 'Burger', category: 'hotfood', price: 32000, stock: 15 },
-  { id: 'bp6', name: 'Hot-Dog', category: 'hotfood', price: 22000, stock: 18 },
-  { id: 'bp7', name: 'Cheesecake', category: 'dessert', price: 25000, stock: 10 },
-  { id: 'bp8', name: 'Espresso', category: 'drink', price: 14000, stock: 60 },
+  { id: 'bp1', name: 'Suv 0.5L', category: 'drink', price: 5000, stock: 100 },
+  { id: 'bp2', name: 'Pepsi 0.5L', category: 'drink', price: 8000, stock: 48 },
+  { id: 'bp3', name: 'Red Bull', category: 'drink', price: 15000, stock: 30 },
+  { id: 'bp4', name: 'Sendvich', category: 'snack', price: 15000, stock: 30 },
 ]
 
 export const INITIAL_BAR_SALES: BarSale[] = [
-  { id: 'bs1', productId: 'bp2', productName: 'Red Bull', qty: 2, total: 30000, at: '2026-06-24 19:24' },
-  { id: 'bs2', productId: 'bp5', productName: 'Burger', qty: 1, total: 32000, at: '2026-06-24 20:10' },
-  { id: 'bs3', productId: 'bp1', productName: 'Pepsi 0.5L', qty: 3, total: 24000, at: '2026-06-24 21:02' },
+  { id: 'bs1', productId: 'bp3', productName: 'Red Bull', qty: 2, total: 30000, at: '2026-06-24 19:24' },
+  { id: 'bs2', productId: 'bp4', productName: 'Sendvich', qty: 1, total: 15000, at: '2026-06-24 20:10' },
+  { id: 'bs3', productId: 'bp2', productName: 'Pepsi 0.5L', qty: 3, total: 24000, at: '2026-06-24 21:02' },
 ]
 
 export const INITIAL_COMBOS: Combo[] = [
-  { id: 'c1', name: 'Gamer Combo', items: ['Burger', 'Pepsi 0.5L', 'Lays Chips'], price: 45000 },
-  { id: 'c2', name: 'Energy Pack', items: ['Red Bull', 'Snickers'], price: 21000 },
+  { id: 'c1', name: 'Sendvich Combo', items: ['Sendvich', 'Pepsi 0.5L'], price: 20000 },
+  { id: 'c2', name: 'Energy Pack', items: ['Red Bull'], price: 15000 },
 ]
 
 export const INITIAL_STAFF: Staff[] = [
@@ -220,9 +216,10 @@ export const INITIAL_EXPENSES: Expense[] = [
 ]
 
 export const EXTRAS = [
-  { id: 'drink', name: 'Ichimlik', price: 8000 },
-  { id: 'snack', name: 'Snack', price: 12000 },
-  { id: 'headset', name: 'Premium naushnik', price: 5000 },
+  { id: 'water', name: 'Suv 0.5L', price: 5000, category: 'drink' },
+  { id: 'pepsi', name: 'Pepsi 0.5L', price: 8000, category: 'drink' },
+  { id: 'redbull', name: 'Red Bull', price: 15000, category: 'drink' },
+  { id: 'sandwich', name: 'Sendvich', price: 15000, category: 'food' },
 ]
 
 export const MONTHLY_REVENUE = [

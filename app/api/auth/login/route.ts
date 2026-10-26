@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import {
   checkLoginRate,
   findBotUserByPhone,
+  linkUserChat,
   normalizePhone,
   resetLoginRate,
+  verifyInitData,
   verifyPin,
 } from '@/lib/server/telegram-auth'
 
@@ -21,9 +23,16 @@ export async function POST(req: Request) {
     return bad('So‘rov noto‘g‘ri formatda', 400, 'bad_request')
   }
 
-  const { phone: rawPhone, pin: rawPin } = (body ?? {}) as {
+  const {
+    phone: rawPhone,
+    pin: rawPin,
+    initData: rawInitData,
+    lang: rawLang,
+  } = (body ?? {}) as {
     phone?: string
     pin?: string
+    initData?: string
+    lang?: string
   }
 
   const phone = normalizePhone(rawPhone ?? '')
@@ -32,8 +41,8 @@ export async function POST(req: Request) {
   }
 
   const pin = String(rawPin ?? '').trim()
-  if (!/^\d{4}$/.test(pin)) {
-    return bad('Parol 4 xonali kod bo‘lishi kerak', 400, 'invalid_pin')
+  if (pin.length < 4 || pin.length > 64) {
+    return bad('Parol noto‘g‘ri', 400, 'invalid_pin')
   }
 
   if (!checkLoginRate(phone)) {
@@ -67,10 +76,24 @@ export async function POST(req: Request) {
 
   resetLoginRate(phone)
 
+  // Mini App ichida kirilgan bo'lsa, hisobni Telegram chatiga bog'laymiz —
+  // keyingi safar initData orqali avtomatik kiradi.
+  let name = user.name
+  const telegram = verifyInitData(String(rawInitData ?? ''))
+  if (telegram.ok) {
+    const linked = await linkUserChat(
+      phone,
+      telegram.user.id,
+      telegram.user.username ?? null,
+      rawLang ?? telegram.user.language_code ?? null,
+    )
+    if (linked) name = linked.name
+  }
+
   return NextResponse.json({
     ok: true,
     user: {
-      name: user.name,
+      name,
       phone: normalizePhone(user.phone),
     },
   })

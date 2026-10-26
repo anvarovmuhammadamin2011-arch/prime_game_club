@@ -26,8 +26,24 @@ export default function FinancePage() {
   const revenue = 64_000_000
   const profit = revenue - totalExpense
 
+  const titleKey: Record<string, string> = {
+    'Elektr energiya': 'expElectricity',
+    'Xodimlar maoshi': 'expSalary',
+    'Internet (1Gbps)': 'expInternet',
+    'Bar mahsulotlari': 'expBarStock',
+  }
+
+  const categoryKey: Record<string, string> = {
+    Kommunal: 'catUtility',
+    Maosh: 'catSalary',
+    Inventar: 'catInventory',
+    Marketing: 'catMarketing',
+    Boshqa: 'catOther',
+  }
+
   const byCategory = expenses.reduce<Record<string, number>>((acc, e) => {
-    acc[e.category] = (acc[e.category] ?? 0) + e.amount
+    const key = t(categoryKey[e.category] ?? e.category)
+    acc[key] = (acc[key] ?? 0) + e.amount
     return acc
   }, {})
 
@@ -91,11 +107,11 @@ export default function FinancePage() {
               onChange={(e) => setForm({ ...form, category: e.target.value })}
               className="h-11 rounded-lg border border-input bg-background px-3 text-sm"
             >
-              <option>Kommunal</option>
-              <option>Maosh</option>
-              <option>Inventar</option>
-              <option>Marketing</option>
-              <option>Boshqa</option>
+              <option value="Kommunal">{t('catUtility')}</option>
+              <option value="Maosh">{t('catSalary')}</option>
+              <option value="Inventar">{t('catInventory')}</option>
+              <option value="Marketing">{t('catMarketing')}</option>
+              <option value="Boshqa">{t('catOther')}</option>
             </select>
             <Input
               type="number"
@@ -142,9 +158,13 @@ export default function FinancePage() {
             {expenses.map((e) => (
               <div key={e.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-medium">{e.title}</p>
+                  <p className="text-sm font-medium">
+                    {t(titleKey[e.title] ?? e.title)}
+                  </p>
                   <div className="mt-0.5 flex items-center gap-2">
-                    <Badge tone="default">{e.category}</Badge>
+                    <Badge tone="default">
+                      {t(categoryKey[e.category] ?? e.category)}
+                    </Badge>
                     <span className="text-xs text-muted-foreground">{e.date}</span>
                   </div>
                 </div>

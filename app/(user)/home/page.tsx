@@ -21,6 +21,9 @@ export default function HomePage() {
   if (!currentUser) return null
 
   const available = computers.filter((c) => c.status === 'available').length
+  const types = Object.values(COMPUTER_TYPES).filter((type) =>
+    computers.some((c) => c.type === type.id),
+  )
   const myBookings = bookings.filter(
     (b) =>
       (b.phone ? phoneKey(b.phone) === phoneKey(currentUser.phone) : b.userId === currentUser.id) &&
@@ -43,8 +46,7 @@ export default function HomePage() {
               {currentUser.name}
             </h1>
             <p className="mt-2 max-w-md text-sm text-primary-foreground/80 text-pretty">
-              Hozir {available} ta ish stansiyasi bo'sh. O'rningizni band qiling
-              va o'yinga sho'ng'ing.
+              {t('heroAvailable', { n: available })}
             </p>
           </div>
           <div className="flex gap-3">
@@ -61,16 +63,16 @@ export default function HomePage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-2">
         <StatCard
-          label="O'ynalgan soat"
+          label={t('hoursPlayed')}
           value={`${currentUser.hoursPlayed}`}
-          hint="jami"
+          hint={t('total')}
           icon={<Clock className="h-5 w-5" />}
           tone="info"
         />
         <StatCard
-          label="Bo'sh kompyuter"
+          label={t('available')}
           value={`${available}`}
-          hint={`${computers.length} dan`}
+          hint={t('ofTotal', { n: computers.length })}
           icon={<Cpu className="h-5 w-5" />}
           tone="success"
         />
@@ -84,8 +86,8 @@ export default function HomePage() {
               <MapIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-medium">Interaktiv xarita</p>
-              <p className="text-sm text-muted-foreground">Zal joylashuvini ko'ring</p>
+              <p className="font-medium">{t('interactiveMap')}</p>
+              <p className="text-sm text-muted-foreground">{t('interactiveMapDesc')}</p>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
           </Card>
@@ -96,8 +98,8 @@ export default function HomePage() {
               <Gift className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-medium">Sodiqlik dasturi</p>
-              <p className="text-sm text-muted-foreground">Ballarni almashtiring</p>
+              <p className="font-medium">{t('loyaltyProgram')}</p>
+              <p className="text-sm text-muted-foreground">{t('loyaltyDesc')}</p>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
           </Card>
@@ -106,15 +108,15 @@ export default function HomePage() {
 
       {/* Pricing tiers */}
       <div>
-        <PageHeader title="Narxlar" subtitle="Soatlik tariflar" />
+        <PageHeader title={t('pricing')} subtitle={t('hourlyRates')} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.values(COMPUTER_TYPES).map((type) => (
+          {types.map((type) => (
             <Card key={type.id} className="flex flex-col p-5">
               <p className="font-heading text-lg font-bold">{type.name}</p>
               <p className="mt-1 text-mono-num text-2xl font-bold text-primary">
                 {formatSom(type.pricePerHour)}
               </p>
-              <p className="text-xs text-muted-foreground">{t('som')} / soat</p>
+              <p className="text-xs text-muted-foreground">{t('som')} {t('perHour')}</p>
               <div className="mt-4 space-y-1.5 text-sm text-muted-foreground">
                 <p>{type.gpu}</p>
                 <p>{type.ram}</p>
@@ -128,10 +130,10 @@ export default function HomePage() {
       {/* Favorites + my bookings */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
-          <PageHeader title="Sevimlilar" subtitle="Tezkor bron uchun" />
+          <PageHeader title={t('favorites')} subtitle={t('favoritesSubtitle')} />
           {favorites.length === 0 ? (
             <Card className="p-6 text-center text-sm text-muted-foreground">
-              Hali sevimli kompyuter yo'q. Xaritadan yulduzcha bosib qo'shing.
+              {t('noFavorites')}
             </Card>
           ) : (
             <div className="space-y-3">
@@ -157,10 +159,10 @@ export default function HomePage() {
         </div>
 
         <div>
-          <PageHeader title="Mening bronlarim" subtitle="So'nggi faollik" />
+          <PageHeader title={t('myBookings')} subtitle={t('recentActivity')} />
           {myBookings.length === 0 ? (
             <Card className="p-6 text-center text-sm text-muted-foreground">
-              Hali bron qilmadingiz.
+              {t('noBookingsYet')}
             </Card>
           ) : (
             <div className="space-y-3">
@@ -169,8 +171,12 @@ export default function HomePage() {
                   <div>
                     <p className="text-mono-num font-medium">{b.computerLabel}</p>
                     <p className="text-xs text-muted-foreground">
-                      {b.code ? `Kod: ${b.code} · ` : ''}
-                      {b.date} · {b.startTime} · {b.hours} soat
+                      {b.code ? `${t('codeLabel')}: ${b.code} · ` : ''}
+                      {t('bookingMeta', {
+                        date: b.date,
+                        time: b.startTime,
+                        hours: b.hours,
+                      })}
                     </p>
                   </div>
                   <div className="text-right">
@@ -188,10 +194,12 @@ export default function HomePage() {
                       className="mt-1"
                     >
                       {b.status === 'confirmed'
-                        ? 'Tasdiqlangan'
+                        ? t('confirmed')
                         : b.status === 'pending'
                           ? t('pending')
-                          : 'Yakunlangan'}
+                          : b.status === 'rejected'
+                            ? t('rejected')
+                            : t('completed')}
                     </Badge>
                   </div>
                 </Card>

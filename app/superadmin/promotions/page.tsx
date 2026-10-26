@@ -84,7 +84,7 @@ export default function PromotionsPage() {
                     </p>
                     <span className="flex items-center gap-1 text-sm text-primary">
                       <Percent className="h-3.5 w-3.5" />
-                      {p.discount}% off
+                      {t('discountOff', { n: p.discount })}
                     </span>
                   </div>
                 </div>

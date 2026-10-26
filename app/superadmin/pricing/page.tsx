@@ -16,14 +16,16 @@ import { Cpu, MemoryStick, Monitor, Save } from 'lucide-react'
 import type { ComputerType } from '@/lib/types'
 
 export default function PricingPage() {
-  const { t, updatePrice } = useApp()
+  const { t, updatePrice, computers } = useApp()
   const [prices, setPrices] = useState<Record<string, number>>(
     Object.fromEntries(
       Object.values(COMPUTER_TYPES).map((c) => [c.id, c.pricePerHour]),
     ),
   )
 
-  const types = Object.values(COMPUTER_TYPES)
+  const types = Object.values(COMPUTER_TYPES).filter((type) =>
+    computers.some((c) => c.type === type.id),
+  )
 
   return (
     <div>
@@ -76,7 +78,7 @@ export default function PricingPage() {
                   variant="outline"
                   size="icon"
                   onClick={() => updatePrice(info.id, prices[info.id])}
-                  aria-label="Save"
+                  aria-label={t('save')}
                 >
                   <Save className="h-4 w-4" />
                 </Button>

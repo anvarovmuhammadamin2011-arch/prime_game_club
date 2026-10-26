@@ -15,10 +15,12 @@ import { fileURLToPath } from 'node:url'
 import { CLUB } from './club-data.mjs'
 import {
   adminBookingText,
+  findUserByChatId,
   notifyUserBookingStatus,
   readBookings,
   updateBooking,
 } from '../lib/bookings-store.mjs'
+import { upsertTelegramUser } from '../lib/telegram-users.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 if (!TOKEN) {
@@ -80,17 +82,61 @@ function miniAppButton() {
     : { text: '🌐 Saytni ochish', url: SITE_URL }
 }
 
-const WELCOME =
-  '🕹 <b>Prime Game Club</b>\n\n' +
-  'Bron qilish, bo‘sh o‘rinlar, bar menyusi va bonuslar — hammasi bitta Mini App ichida.\n\n' +
-  (IS_HTTPS
-    ? '👇 Mini App’ni ochish uchun pastdagi tugmani bosing.'
-    : '⚠️ Mini App hozircha sozlanmagan. Administratorga murojaat qiling.')
+const WELCOME = {
+  uz:
+    '🕹 <b>Prime Game Club</b>\n\n' +
+    'Bron qilish, bo‘sh o‘rinlar, bar menyusi va bonuslar — hammasi bitta Mini App ichida.\n\n' +
+    (IS_HTTPS
+      ? '👇 Mini App’ni ochish uchun pastdagi tugmani bosing.'
+      : '⚠️ Mini App hozircha sozlanmagan. Administratorga murojaat qiling.'),
+  ru:
+    '🕹 <b>Prime Game Club</b>\n\n' +
+    'Бронирование, свободные места, меню бара и бонусы — всё в одном Mini App.\n\n' +
+    (IS_HTTPS
+      ? '👇 Нажмите кнопку ниже, чтобы открыть Mini App.'
+      : '⚠️ Mini App пока не настроен. Обратитесь к администратору.'),
+}
+
+const PHONE_REQUEST = {
+  uz:
+    '📱 <b>Prime Game Club</b>\n\n' +
+    'Telefon raqamingizni ulashing — keyin Mini App’da parol o‘rnatasiz va shu raqam bilan kirasiz.',
+  ru:
+    '📱 <b>Prime Game Club</b>\n\n' +
+    'Поделитесь номером телефона — затем задайте пароль в Mini App и входите по этому номеру.',
+}
+
+const PHONE_SAVED = {
+  uz:
+    '✅ <b>Raqamingiz saqlandi!</b>\n\n' +
+    'Endi Mini App’ni ochib, kirish uchun parol o‘rnating.',
+  ru:
+    '✅ <b>Номер сохранён!</b>\n\n' +
+    'Откройте Mini App и задайте пароль для входа.',
+}
+
+const WELCOME_BACK = {
+  uz: '✅ <b>Raqamingiz saqlandi!</b>\n\n👇 Mini App’ni oching.',
+  ru: '✅ <b>Номер сохранён!</b>\n\n👇 Откройте Mini App.',
+}
+
+const phoneKeyboard = (lang) => ({
+  keyboard: [
+    [
+      {
+        text: lang === 'ru' ? '📱 Поделиться номером' : '📱 Telefon raqamni ulashish',
+        request_contact: true,
+      },
+    ],
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: true,
+})
 
 // Eski reply-klaviaturani bir marta olib tashlaymiz.
 const cleanedChats = new Set()
 
-async function showMiniApp(chatId) {
+async function showMiniApp(chatId, lang = 'uz', text) {
   if (!cleanedChats.has(chatId)) {
     cleanedChats.add(chatId)
     try {
@@ -107,7 +153,7 @@ async function showMiniApp(chatId) {
     }
   }
 
-  await send(chatId, WELCOME, {
+  await send(chatId, text ?? WELCOME[lang] ?? WELCOME.uz, {
     reply_markup: IS_HTTPS ? inline([[miniAppButton()]]) : undefined,
   })
 }
@@ -115,7 +161,45 @@ async function showMiniApp(chatId) {
 async function handleMessage(message) {
   // Mini App faqat shaxsiy chatda ochiladi.
   if (message.chat?.type !== 'private') return
-  await showMiniApp(message.chat.id)
+  const lang = message.from?.language_code?.startsWith('ru') ? 'ru' : 'uz'
+  const chatId = message.chat.id
+  const from = message.from
+  const contact = message.contact
+
+  // Foydalanuvchi o'z raqamini ulashdi.
+  if (contact?.phone_number && (!contact.user_id || contact.user_id === from?.id)) {
+    const name = [from?.first_name, from?.last_name].filter(Boolean).join(' ')
+    const user = await upsertTelegramUser({
+      chatId,
+      phone: contact.phone_number,
+      name,
+      username: from?.username ?? null,
+      lang,
+    })
+    const needsPassword = !user?.pinHash || !user?.pinSalt
+    await showMiniApp(
+      chatId,
+      lang,
+      needsPassword ? PHONE_SAVED[lang] : WELCOME_BACK[lang],
+    )
+    return
+  }
+
+  const existing = await findUserByChatId(chatId)
+
+  // Yangi foydalanuvchi — avval telefon raqamini ulashadi.
+  if (!existing) {
+    await send(chatId, PHONE_REQUEST[lang], {
+      reply_markup: phoneKeyboard(lang),
+    })
+    return
+  }
+
+  await showMiniApp(
+    chatId,
+    lang,
+    existing.pinHash && existing.pinSalt ? WELCOME[lang] : PHONE_SAVED[lang],
+  )
 }
 
 /* ------------------------------------------------------------------ */
