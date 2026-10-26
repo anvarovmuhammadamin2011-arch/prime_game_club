@@ -145,6 +145,14 @@ function syncBarProducts(stored: BarProduct[] | undefined): BarProduct[] {
   return stored
 }
 
+// Demo hisob bilan sahifa ochilganda avtomatik kirib qolmasin.
+const DEMO_USER_IDS = new Set(['u1', 'u2'])
+
+function syncCurrentUser(stored: User | null | undefined): User | null {
+  if (!stored) return null
+  return DEMO_USER_IDS.has(stored.id) ? null : stored
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>({
     currentUser: null,
@@ -174,6 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setState((s) => ({
           ...s,
           ...parsed,
+          currentUser: syncCurrentUser(parsed.currentUser),
           computers: syncComputers(parsed.computers),
           users: syncUsers(parsed.users),
           barProducts: syncBarProducts(parsed.barProducts),
