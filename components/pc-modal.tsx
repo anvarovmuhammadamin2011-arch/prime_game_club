@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Badge, Button } from '@/components/ui/primitives'
 import { COMPUTER_TYPES, EXTRAS } from '@/lib/mock-data'
 import { STATUS_META } from '@/lib/status'
 import { formatSom } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/context/app-context'
-import { Check, Cpu, MemoryStick, Monitor, Star, X } from 'lucide-react'
+import { Check, Star, X } from 'lucide-react'
 import type { Computer } from '@/lib/types'
 
 const TIMES = ['10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
@@ -20,7 +19,6 @@ const HOURS = [1, 2, 3, 4, 6, 8]
  */
 export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) {
   const { currentUser, createBooking, toggleFavorite, t } = useApp()
-  const router = useRouter()
   const info = COMPUTER_TYPES[pc.type]
   const status = STATUS_META[pc.status]
   const available = pc.status === 'available'
@@ -32,6 +30,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [code, setCode] = useState<string | null>(null)
+  const [left, setLeft] = useState(5)
 
   const total = useMemo(
     () =>
@@ -49,6 +48,17 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
       document.body.style.overflow = ''
     }
   }, [onClose])
+
+  // Bron kodi 5 soniya ko'rinib turadi, keyin oyna o'zi yopiladi.
+  useEffect(() => {
+    if (!code) return
+    if (left <= 0) {
+      onClose()
+      return
+    }
+    const id = setTimeout(() => setLeft((n) => n - 1), 1000)
+    return () => clearTimeout(id)
+  }, [code, left, onClose])
 
   const toggleExtra = (id: string) =>
     setExtras((s) => (s.includes(id) ? s.filter((e) => e !== id) : [...s, id]))
@@ -91,7 +101,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
             </span>
             <h3 className="mt-4 font-heading text-xl font-bold">Bron qabul qilindi!</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Kodni saqlab qo‘ying — klubda administratorga ayting.
+              Kodni eslab qoling — «Profil» bo‘limida ham saqlanadi.
             </p>
             <div className="my-5 rounded-xl border border-dashed border-primary/40 bg-primary/10 px-4 py-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Bron kodi</p>
@@ -99,14 +109,8 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
                 {code}
               </p>
             </div>
-            <Button
-              className="w-full"
-              onClick={() => {
-                onClose()
-                router.push('/home')
-              }}
-            >
-              Tushundim
+            <Button className="w-full" onClick={onClose}>
+              Tushundim · {left}
             </Button>
           </div>
         ) : (
@@ -128,20 +132,7 @@ export function PcModal({ pc, onClose }: { pc: Computer; onClose: () => void }) 
               </button>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {[
-                { icon: Cpu, value: info.gpu },
-                { icon: MemoryStick, value: info.ram },
-                { icon: Monitor, value: info.display },
-              ].map(({ icon: Icon, value }) => (
-                <div key={value} className="rounded-lg bg-secondary/60 p-3">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  <p className="mt-1.5 text-xs font-medium leading-tight">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3 flex items-center justify-between rounded-lg bg-secondary/60 px-3 py-2.5">
+            <div className="mt-4 flex items-center justify-between rounded-lg bg-secondary/60 px-3 py-2.5">
               <span className="text-sm text-muted-foreground">Narx</span>
               <span className="text-mono-num font-bold text-primary">
                 {formatSom(info.pricePerHour)}{' '}
