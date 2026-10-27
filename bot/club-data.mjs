@@ -14,7 +14,7 @@ export const ZONES = [
   {
     id: 'VIP',
     name: 'VIP',
-    price: 25000,
+    price: 10000,
     gpu: 'RTX 4090',
     ram: '64GB DDR5',
     display: '27" 4K 240Hz',
@@ -22,7 +22,7 @@ export const ZONES = [
   {
     id: 'GAMING_PRO',
     name: 'Gaming Pro',
-    price: 25000,
+    price: 10000,
     gpu: 'RTX 4080',
     ram: '32GB DDR5',
     display: '27" QHD 165Hz',

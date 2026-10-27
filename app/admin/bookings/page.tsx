@@ -3,8 +3,9 @@
 import { useApp } from '@/context/app-context'
 import { Card, PageHeader, Button, Badge } from '@/components/ui/primitives'
 import { formatSom } from '@/lib/format'
+import { formatClock, localDateStr } from '@/lib/pc-session.mjs'
 import { useState } from 'react'
-import { Check, X, Clock, Calendar, Monitor } from 'lucide-react'
+import { Check, X, Clock, Calendar, Monitor, Power } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 
 const FILTERS = [
@@ -22,9 +23,18 @@ const STATUS_TONE: Record<Booking['status'], 'info' | 'success' | 'danger' | 'de
 }
 
 export default function BookingsPage() {
-  const { t, bookings, confirmBooking, rejectBooking } = useApp()
+  const {
+    t,
+    bookings,
+    computers,
+    confirmBooking,
+    rejectBooking,
+    startPcSession,
+    stopPcSession,
+  } = useApp()
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
+  const today = localDateStr()
 
   const needle = query.trim().toLowerCase()
   const filtered = bookings.filter((b) => {
@@ -79,8 +89,16 @@ export default function BookingsPage() {
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {filtered.map((b) => (
-            <Card key={b.id} className="p-4">
+          {filtered.map((b) => {
+            const pc = computers.find(
+              (c) =>
+                (b.computerId && c.id === b.computerId) ||
+                c.label === b.computerLabel,
+            )
+            const linked = pc?.sessionBookingId === b.id
+            const busy = Boolean(pc?.sessionEndsAt) && !linked
+            return (
+              <Card key={b.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{b.userName}</p>
@@ -142,8 +160,47 @@ export default function BookingsPage() {
                   </Button>
                 </div>
               )}
-            </Card>
-          ))}
+
+              {b.status === 'confirmed' && b.date >= today && pc && (
+                <div className="mt-3">
+                  {linked ? (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => stopPcSession(pc.id)}
+                    >
+                      <Power className="h-4 w-4" />
+                      {t('turnOff')}
+                      {pc.sessionEndsAt
+                        ? ` · ${formatClock(pc.sessionEndsAt)}`
+                        : ''}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={busy}
+                      onClick={() =>
+                        startPcSession(
+                          pc.id,
+                          b.date,
+                          b.startTime,
+                          b.hours,
+                          b.id,
+                        )
+                      }
+                    >
+                      <Power className="h-4 w-4" />
+                      {busy ? t('booked') : t('turnOnPc')}
+                    </Button>
+                  )}
+                </div>
+              )}
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

@@ -12,7 +12,6 @@ import type { Role } from '@/lib/types'
 import { getTelegramInitData } from '@/lib/telegram'
 
 const DEMO: { labelKey: string; phone: string; password: string }[] = [
-  { labelKey: 'demoUser', phone: '+998901234567', password: 'user123' },
   { labelKey: 'demoAdmin', phone: '+998930951996', password: 'primegameclub' },
   { labelKey: 'demoSuper', phone: '+998900000000', password: 'super123' },
 ]
@@ -200,7 +199,7 @@ export default function LoginPage() {
           <div className="mt-8 rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t('demoAccounts')}
+                {t('adminAccess')}
               </p>
               <span className="text-[11px] text-muted-foreground">{t('quickLogin')}</span>
             </div>

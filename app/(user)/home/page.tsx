@@ -16,8 +16,15 @@ import {
   Gift,
 } from 'lucide-react'
 
+const BAR_NAME_KEYS: Record<string, string> = {
+  'Suv 0.5L': 'extraWater',
+  'Pepsi 0.5L': 'extraPepsi',
+  'Red Bull': 'extraRedBull',
+  Sendvich: 'extraSandwich',
+}
+
 export default function HomePage() {
-  const { currentUser, computers, bookings, t } = useApp()
+  const { currentUser, computers, bookings, barProducts, t } = useApp()
   if (!currentUser) return null
 
   const available = computers.filter((c) => c.status === 'available').length
@@ -126,6 +133,28 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      {/* Bar prices */}
+      {barProducts.length > 0 && (
+        <div>
+          <PageHeader title={t('barPrices')} subtitle={t('barPricesSubtitle')} />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {barProducts.map((product) => (
+              <Card
+                key={product.id}
+                className="flex items-center justify-between gap-3 p-4"
+              >
+                <span className="text-sm font-medium">
+                  {t(BAR_NAME_KEYS[product.name] ?? product.name)}
+                </span>
+                <span className="text-mono-num text-sm font-semibold text-primary">
+                  {formatSom(product.price)}
+                </span>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Favorites + my bookings */}
       <div className="grid gap-6 lg:grid-cols-2">

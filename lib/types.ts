@@ -26,6 +26,9 @@ export interface Computer {
   uptimeHours: number
   x: number
   y: number
+  sessionStartedAt?: string | null
+  sessionEndsAt?: string | null
+  sessionBookingId?: string | null
 }
 
 export interface User {

@@ -16,7 +16,7 @@ import { Cpu, MemoryStick, Monitor, Save } from 'lucide-react'
 import type { ComputerType } from '@/lib/types'
 
 export default function PricingPage() {
-  const { t, updatePrice, computers } = useApp()
+  const { t, updatePrice, computers, barProducts } = useApp()
   const [prices, setPrices] = useState<Record<string, number>>(
     Object.fromEntries(
       Object.values(COMPUTER_TYPES).map((c) => [c.id, c.pricePerHour]),
@@ -91,6 +91,23 @@ export default function PricingPage() {
             </div>
           </Card>
         ))}
+      </div>
+
+      <div className="mt-8">
+        <PageHeader title={t('barPrices')} subtitle={t('barPricesSubtitle')} />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {barProducts.map((product) => (
+            <Card
+              key={product.id}
+              className="flex items-center justify-between gap-3 p-4"
+            >
+              <span className="text-sm font-medium">{product.name}</span>
+              <span className="text-mono-num text-sm font-semibold text-primary">
+                {formatSom(product.price)}
+              </span>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -1,19 +1,37 @@
 'use client'
 
 import { useApp } from '@/context/app-context'
-import { Card, PageHeader, Button, Badge } from '@/components/ui/primitives'
+import { Card, PageHeader, Button, Badge, Input } from '@/components/ui/primitives'
 import { COMPUTER_TYPES } from '@/lib/mock-data'
 import { STATUS_META } from '@/lib/status'
+import { formatClock, localDateStr } from '@/lib/pc-session.mjs'
 import { useState } from 'react'
-import { Wrench, Thermometer, Clock } from 'lucide-react'
+import { Wrench, Thermometer, Clock, Power } from 'lucide-react'
 
 export default function ComputersPage() {
   const {
     t,
     computers,
     setMaintenanceMode,
+    startPcSession,
+    stopPcSession,
   } = useApp()
   const [zoneFilter, setZoneFilter] = useState<string>('all')
+  const [startingId, setStartingId] = useState<string | null>(null)
+  const [startTime, setStartTime] = useState('')
+  const [hours, setHours] = useState('1')
+
+  const openStart = (id: string) => {
+    setStartingId(id)
+    setStartTime(formatClock(new Date().toISOString()))
+    setHours('1')
+  }
+
+  const begin = (id: string) => {
+    if (startPcSession(id, localDateStr(), startTime, Number(hours))) {
+      setStartingId(null)
+    }
+  }
   const zones = ['all', ...Array.from(new Set(computers.map((c) => c.zone)))]
 
   const filtered =
@@ -74,7 +92,83 @@ export default function ComputersPage() {
                 </span>
               </div>
 
-              <div className="mt-4 flex justify-end">
+              {c.sessionEndsAt && (
+                <p className="mt-3 rounded-lg bg-secondary/60 px-2.5 py-2 text-xs text-muted-foreground">
+                  {new Date(c.sessionStartedAt || '').getTime() > Date.now()
+                    ? t('sessionStarts', {
+                        time: formatClock(c.sessionStartedAt || ''),
+                      })
+                    : t('sessionUntil', {
+                        time: formatClock(c.sessionEndsAt),
+                      })}
+                </p>
+              )}
+
+              {startingId === c.id && !c.sessionEndsAt && (
+                <div className="mt-3 space-y-2 rounded-lg border border-border p-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-xs text-muted-foreground">
+                      <span>{t('startTime')}</span>
+                      <Input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="h-9"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-muted-foreground">
+                      <span>{t('durationHours')}</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="24"
+                        value={hours}
+                        onChange={(e) => setHours(e.target.value)}
+                        className="h-9"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => begin(c.id)}
+                    >
+                      {t('startSession')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setStartingId(null)}
+                    >
+                      {t('close')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                {c.sessionEndsAt ? (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => stopPcSession(c.id)}
+                  >
+                    <Power className="h-4 w-4" />
+                    {t('turnOff')}
+                  </Button>
+                ) : (
+                  c.status !== 'maintenance' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openStart(c.id)}
+                    >
+                      <Power className="h-4 w-4" />
+                      {t('turnOn')}
+                    </Button>
+                  )
+                )}
                 <Button
                   variant={c.status === 'maintenance' ? 'danger' : 'outline'}
                   size="sm"

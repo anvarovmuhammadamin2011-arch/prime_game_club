@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import type {
@@ -36,6 +37,7 @@ import type { BarSale, AuditEntry } from '@/lib/types'
 import { translate } from '@/lib/translations'
 import { uid, nowStamp } from '@/lib/format'
 import { normalizePhone, phoneKey } from '@/lib/phone'
+import { buildPcSession, formatClock, localDateStr } from '@/lib/pc-session.mjs'
 
 interface AppState {
   currentUser: User | null
@@ -73,6 +75,14 @@ interface AppContextValue extends AppState {
   rejectBooking: (id: string) => Promise<void>
   refreshBookings: () => Promise<void>
   setMaintenanceMode: (id: string, on: boolean) => void
+  startPcSession: (
+    computerId: string,
+    date: string,
+    startTime: string,
+    hours: number,
+    bookingId?: string,
+  ) => boolean
+  stopPcSession: (computerId: string) => void
   sellBarProduct: (productId: string, qty: number) => void
   addBarProduct: (data: Omit<BarProduct, 'id'>) => void
   addExpense: (data: Omit<Expense, 'id'>) => void
@@ -90,6 +100,7 @@ const AppContext = createContext<AppContextValue | null>(null)
 
 const STORAGE_KEY = 'prime-game-club-state-v2'
 const LEGACY_STORAGE_KEY = 'legion-game-club-state-v2'
+const DEMO_USER_IDS = new Set(['u1', 'u2'])
 
 /**
  * Kompyuterlar ro'yxati configdan olinadi (lib/mock-data.ts).
@@ -110,7 +121,14 @@ function syncComputers(stored: Computer[] | undefined): Computer[] {
   const byId = new Map(stored.map((c) => [c.id, c]))
   return INITIAL_COMPUTERS.map((c) => {
     const previous = byId.get(c.id)
-    return previous ? { ...c, status: previous.status } : c
+    if (!previous) return c
+    return {
+      ...c,
+      status: previous.status,
+      sessionStartedAt: previous.sessionStartedAt ?? null,
+      sessionEndsAt: previous.sessionEndsAt ?? null,
+      sessionBookingId: previous.sessionBookingId ?? null,
+    }
   })
 }
 
@@ -121,7 +139,9 @@ function syncComputers(stored: Computer[] | undefined): Computer[] {
 function syncUsers(stored: User[] | undefined): User[] {
   if (!Array.isArray(stored)) return INITIAL_USERS
   const seeded = new Map(INITIAL_USERS.map((u) => [u.id, u]))
-  const merged = stored.map((u) => seeded.get(u.id) ?? u)
+  const merged = stored
+    .filter((u) => !DEMO_USER_IDS.has(u.id))
+    .map((u) => seeded.get(u.id) ?? u)
   for (const u of INITIAL_USERS) {
     if (!stored.some((s) => s.id === u.id)) merged.push(u)
   }
@@ -146,8 +166,6 @@ function syncBarProducts(stored: BarProduct[] | undefined): BarProduct[] {
 }
 
 // Demo hisob bilan sahifa ochilganda avtomatik kirib qolmasin.
-const DEMO_USER_IDS = new Set(['u1', 'u2'])
-
 function syncCurrentUser(stored: User | null | undefined): User | null {
   if (!stored) return null
   return DEMO_USER_IDS.has(stored.id) ? null : stored
@@ -171,6 +189,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     theme: 'dark',
     hydrated: false,
   })
+  const latestState = useRef(state)
+  latestState.current = state
+  const remindedBookings = useRef<Set<string>>(new Set())
 
   // hydrate from localStorage
   useEffect(() => {
@@ -357,6 +378,131 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer)
   }, [state.hydrated, refreshBookings])
 
+  // Sessiya vaqti kelganda PC'ni band qilamiz, tugaganda bo'shatamiz.
+  // shortcut: taymer faqat panel ochiq turganda ishlaydi; real PC control
+  // kerak bo'lsa sessiyani serverga ko'chirish kerak.
+  useEffect(() => {
+    if (!state.hydrated) return
+
+    const tick = async () => {
+      const now = Date.now()
+      const current = latestState.current
+      const due = current.computers.filter(
+        (c) => c.sessionEndsAt && new Date(c.sessionEndsAt).getTime() <= now,
+      )
+
+      if (due.length > 0) {
+        const completed = new Set<string>()
+        for (const pc of due) {
+          if (!pc.sessionBookingId) continue
+          try {
+            const res = await fetch(
+              `/api/bookings/${encodeURIComponent(pc.sessionBookingId)}`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'completed' }),
+              },
+            )
+            if (res.ok) completed.add(pc.sessionBookingId)
+          } catch {
+            /* server vaqtincha ishlamasa, sessiya baribir o'chadi */
+          }
+        }
+
+        setState((s) => ({
+          ...s,
+          computers: s.computers.map((c) =>
+            c.sessionEndsAt && new Date(c.sessionEndsAt).getTime() <= now
+              ? {
+                  ...c,
+                  status: c.status === 'maintenance' ? 'maintenance' : 'available',
+                  sessionStartedAt: null,
+                  sessionEndsAt: null,
+                  sessionBookingId: null,
+                }
+              : c,
+          ),
+          bookings: completed.size
+            ? s.bookings.map((b) =>
+                completed.has(b.id) ? { ...b, status: 'completed' } : b,
+              )
+            : s.bookings,
+        }))
+      }
+
+      const starting = current.computers.filter(
+        (c) =>
+          c.sessionStartedAt &&
+          c.sessionEndsAt &&
+          new Date(c.sessionStartedAt).getTime() <= now &&
+          new Date(c.sessionEndsAt).getTime() > now &&
+          c.status !== 'booked' &&
+          c.status !== 'maintenance',
+      )
+      if (starting.length > 0) {
+        const ids = new Set(starting.map((c) => c.id))
+        setState((s) => ({
+          ...s,
+          computers: s.computers.map((c) =>
+            ids.has(c.id) ? { ...c, status: 'booked' } : c,
+          ),
+        }))
+      }
+    }
+
+    void tick()
+    const timer = setInterval(() => {
+      void tick()
+    }, 20_000)
+    return () => clearInterval(timer)
+  }, [state.hydrated])
+
+  // Bron boshlanish vaqtida adminga eslatma.
+  const currentRole = state.currentUser?.role
+  useEffect(() => {
+    if (!state.hydrated) return
+    if (currentRole !== 'admin' && currentRole !== 'superadmin') return
+
+    const tick = () => {
+      const now = new Date()
+      const today = localDateStr(now)
+      for (const b of latestState.current.bookings) {
+        if (b.status !== 'confirmed' || b.date !== today) continue
+        if (remindedBookings.current.has(b.id)) continue
+
+        const [h, m] = b.startTime.split(':').map(Number)
+        if (!Number.isFinite(h) || !Number.isFinite(m)) continue
+
+        const start = new Date(now)
+        start.setHours(h, m, 0, 0)
+        const diff = now.getTime() - start.getTime()
+        if (diff < 0 || diff > 5 * 60_000) continue
+
+        const pc = latestState.current.computers.find(
+          (c) =>
+            (b.computerId && c.id === b.computerId) ||
+            c.label === b.computerLabel,
+        )
+        if (pc?.sessionBookingId === b.id) continue
+
+        remindedBookings.current.add(b.id)
+        showNotification(
+          t('nBookingStarting', {
+            time: b.startTime,
+            name: b.userName,
+            pc: b.computerLabel,
+          }),
+          'warning',
+        )
+      }
+    }
+
+    tick()
+    const timer = setInterval(tick, 20_000)
+    return () => clearInterval(timer)
+  }, [state.hydrated, currentRole, showNotification, t])
+
   const createBooking = useCallback(
     async (
       data: Omit<Booking, 'id' | 'status' | 'createdAt' | 'userId' | 'userName'>,
@@ -409,7 +555,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             users,
             currentUser: users.find((u) => u.id === user.id) ?? s.currentUser,
             computers: s.computers.map((c) =>
-              c.id === data.computerId ? { ...c, status: 'pending' } : c,
+              c.id === data.computerId && c.status !== 'maintenance'
+                ? { ...c, status: 'pending' }
+                : c,
             ),
           }
         })
@@ -446,7 +594,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               b.id === id ? { ...b, status: 'confirmed' } : b,
             ),
             computers: s.computers.map((c) =>
-              c.id === current?.computerId ? { ...c, status: 'booked' } : c,
+              c.id === current?.computerId && c.status !== 'maintenance'
+                ? { ...c, status: 'booked' }
+                : c,
             ),
             auditLog: [
               {
@@ -490,7 +640,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               b.id === id ? { ...b, status: 'rejected' } : b,
             ),
             computers: s.computers.map((c) =>
-              c.id === current?.computerId ? { ...c, status: 'available' } : c,
+              c.id === current?.computerId &&
+              !c.sessionEndsAt &&
+              c.status !== 'maintenance'
+                ? { ...c, status: 'available' }
+                : c,
             ),
             auditLog: [
               {
@@ -515,11 +669,114 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({
       ...s,
       computers: s.computers.map((c) =>
-        c.id === id ? { ...c, status: on ? 'maintenance' : 'available' } : c,
+        c.id === id
+          ? {
+              ...c,
+              status: on ? 'maintenance' : c.sessionEndsAt ? 'booked' : 'available',
+              sessionStartedAt: on ? null : c.sessionStartedAt,
+              sessionEndsAt: on ? null : c.sessionEndsAt,
+              sessionBookingId: on ? null : c.sessionBookingId,
+            }
+          : c,
       ),
     }))
     showNotification(t(on ? 'nMaintenanceOn' : 'nMaintenanceOff'), 'info')
   }, [showNotification, t])
+
+  const startPcSession = useCallback(
+    (
+      computerId: string,
+      date: string,
+      startTime: string,
+      hours: number,
+      bookingId?: string,
+    ) => {
+      const pc = state.computers.find((c) => c.id === computerId)
+      if (!pc) return false
+      if (pc.status === 'maintenance') {
+        showNotification(t('nPcMaintenance'), 'error')
+        return false
+      }
+      if (pc.sessionEndsAt) {
+        if (bookingId && pc.sessionBookingId === bookingId) return true
+        showNotification(t('nPcBusy'), 'error')
+        return false
+      }
+
+      const session = buildPcSession(date || localDateStr(), startTime, hours)
+      if (!session || new Date(session.end).getTime() <= Date.now()) {
+        showNotification(t('nTimeInvalid'), 'error')
+        return false
+      }
+
+      const active = new Date(session.start).getTime() <= Date.now()
+      setState((s) => ({
+        ...s,
+        computers: s.computers.map((c) =>
+          c.id === computerId
+            ? {
+                ...c,
+                status: 'booked',
+                sessionStartedAt: session.start,
+                sessionEndsAt: session.end,
+                sessionBookingId: bookingId ?? null,
+              }
+            : c,
+        ),
+      }))
+      showNotification(
+        t(active ? 'nSessionStarted' : 'nSessionScheduled', {
+          pc: pc.label,
+          time: formatClock(active ? session.end : session.start),
+        }),
+        'success',
+      )
+      return true
+    },
+    [state.computers, showNotification, t],
+  )
+
+  const stopPcSession = useCallback(
+    (computerId: string) => {
+      const pc = state.computers.find((c) => c.id === computerId)
+      if (!pc?.sessionEndsAt) return
+      const bookingId = pc.sessionBookingId ?? null
+      const started = pc.sessionStartedAt
+        ? new Date(pc.sessionStartedAt).getTime() <= Date.now()
+        : false
+      const completed = started && bookingId ? bookingId : null
+
+      setState((s) => ({
+        ...s,
+        computers: s.computers.map((c) =>
+          c.id === computerId
+            ? {
+                ...c,
+                status: c.status === 'maintenance' ? 'maintenance' : 'available',
+                sessionStartedAt: null,
+                sessionEndsAt: null,
+                sessionBookingId: null,
+              }
+            : c,
+        ),
+        bookings: completed
+          ? s.bookings.map((b) =>
+              b.id === completed ? { ...b, status: 'completed' } : b,
+            )
+          : s.bookings,
+      }))
+
+      if (completed) {
+        void fetch(`/api/bookings/${encodeURIComponent(completed)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'completed' }),
+        }).catch(() => {})
+      }
+      showNotification(t('nSessionStopped', { pc: pc.label }), 'info')
+    },
+    [state.computers, showNotification, t],
+  )
 
   const sellBarProduct = useCallback((productId: string, qty: number) => {
     setState((s) => {
@@ -626,6 +883,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     rejectBooking,
     refreshBookings,
     setMaintenanceMode,
+    startPcSession,
+    stopPcSession,
     sellBarProduct,
     addBarProduct,
     addExpense,

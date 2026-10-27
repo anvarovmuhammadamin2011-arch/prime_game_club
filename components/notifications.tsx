@@ -19,7 +19,8 @@ export function Notifications() {
   // Bittadan ko'rsatamiz: navbatdagilar oldingisi yopilgach chiqadi.
   useEffect(() => {
     if (!current) return
-    const id = setTimeout(() => dismissNotification(current.id), 3500)
+    const delay = current.type === 'warning' ? 8000 : 3500
+    const id = setTimeout(() => dismissNotification(current.id), delay)
     return () => clearTimeout(id)
   }, [current, dismissNotification])
 
